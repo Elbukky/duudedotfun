@@ -45,7 +45,7 @@ const BuySellPanel = ({ tokenName, price }: { tokenName: string; price: number }
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {v} SOL
+              {v} USDC
             </motion.button>
           ))}
         </div>
