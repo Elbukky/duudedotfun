@@ -26,7 +26,7 @@ const BuySellPanel = ({ tokenName, price }: { tokenName: string; price: number }
 
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-muted-foreground font-body mb-1 block">Amount (SOL)</label>
+          <label className="text-xs text-muted-foreground font-body mb-1 block"><label className="text-xs text-muted-foreground font-body mb-1 block">Amount (USDC)</label></label>
           <input
             type="number"
             placeholder="0.0"
