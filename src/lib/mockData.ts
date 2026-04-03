@@ -81,13 +81,13 @@ export const mockMissions: Mission[] = [
 ];
 
 export const mockActivities: Activity[] = [
-  { id: '1', type: 'buy', user: '0xd3g3...n420', amount: 0.5, message: 'bought 0.5 SOL worth', timestamp: '2m ago' },
-  { id: '2', type: 'buy', user: '0xm00n...beef', amount: 1.2, message: 'bought 1.2 SOL worth', timestamp: '3m ago' },
-  { id: '3', type: 'sell', user: '0xpap3...hand', amount: 0.3, message: 'sold 0.3 SOL worth', timestamp: '5m ago' },
+  { id: '1', type: 'buy', user: '0xd3g3...n420', amount: 0.5, message: 'bought 0.5 USDC worth', timestamp: '2m ago' },
+  { id: '2', type: 'buy', user: '0xm00n...beef', amount: 1.2, message: 'bought 1.2 USDC worth', timestamp: '3m ago' },
+  { id: '3', type: 'sell', user: '0xpap3...hand', amount: 0.3, message: 'sold 0.3 USDC worth', timestamp: '5m ago' },
   { id: '4', type: 'holder', user: '0xfr0g...king', message: 'became a new holder', timestamp: '6m ago' },
   { id: '5', type: 'mission', user: '', message: '🏆 Century Club mission completed!', timestamp: '8m ago' },
-  { id: '6', type: 'buy', user: '0xape...lord', amount: 2.0, message: 'bought 2.0 SOL worth', timestamp: '10m ago' },
-  { id: '7', type: 'buy', user: '0xwhal...3000', amount: 5.0, message: 'bought 5.0 SOL worth 🐋', timestamp: '12m ago' },
+  { id: '6', type: 'buy', user: '0xape...lord', amount: 2.0, message: 'bought 2.0 USDC worth', timestamp: '10m ago' },
+  { id: '7', type: 'buy', user: '0xwhal...3000', amount: 5.0, message: 'bought 5.0 USDC worth 🐋', timestamp: '12m ago' },
   { id: '8', type: 'holder', user: '0xnew...b1e', message: 'became a new holder', timestamp: '15m ago' },
 ];
 
