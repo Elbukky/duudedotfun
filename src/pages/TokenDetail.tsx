@@ -6,6 +6,7 @@ import HypeScoreWidget from "@/components/HypeScoreWidget";
 import MissionCard from "@/components/MissionCard";
 import BuySellPanel from "@/components/BuySellPanel";
 import ActivityFeed from "@/components/ActivityFeed";
+import CandlestickChart from "@/components/CandlestickChart";
 import StatusBadge from "@/components/StatusBadge";
 import { mockTokens, mockMissions, mockActivities } from "@/lib/mockData";
 
@@ -98,6 +99,7 @@ const TokenDetail = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main content */}
             <div className="lg:col-span-2 space-y-6">
+              <CandlestickChart basePrice={token.price} />
               <HypeScoreWidget score={token.hypeScore} />
 
               {/* Arena Rank */}
