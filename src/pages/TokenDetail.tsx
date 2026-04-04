@@ -101,6 +101,7 @@ const TokenDetail = () => {
             {/* Main content */}
             <div className="lg:col-span-2 space-y-6">
               <CandlestickChart basePrice={token.price} />
+              <BuySellPanel tokenName={token.ticker} price={token.price} />
               <HypeScoreWidget score={token.hypeScore} />
 
               {/* Arena Rank */}
@@ -135,7 +136,6 @@ const TokenDetail = () => {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              <BuySellPanel tokenName={token.ticker} price={token.price} />
 
               <div className="card-cartoon">
                 <h3 className="font-display text-xs text-muted-foreground mb-3">LINKS</h3>
