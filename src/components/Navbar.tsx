@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Swords, Rocket, User, Menu, X } from "lucide-react";
+import { Flame, Swords, Rocket, User, Menu, X, BookOpen } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
