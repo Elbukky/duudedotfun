@@ -3,6 +3,7 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import TokenCard from "@/components/TokenCard";
+import ChatBox from "@/components/ChatBox";
 import { mockTokens } from "@/lib/mockData";
 
 const badges = [
@@ -109,6 +110,11 @@ const Arena = () => {
               ))}
             </div>
           )}
+
+          {/* Arena Chat */}
+          <div className="mt-8">
+            <ChatBox title="💬 ARENA CHAT" context="arena" />
+          </div>
         </div>
       </div>
     </div>
