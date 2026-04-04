@@ -6,6 +6,7 @@ import HypeScoreWidget from "@/components/HypeScoreWidget";
 import MissionCard from "@/components/MissionCard";
 import BuySellPanel from "@/components/BuySellPanel";
 import ActivityFeed from "@/components/ActivityFeed";
+import ChatBox from "@/components/ChatBox";
 import CandlestickChart from "@/components/CandlestickChart";
 import StatusBadge from "@/components/StatusBadge";
 import { mockTokens, mockMissions, mockActivities } from "@/lib/mockData";
