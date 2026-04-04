@@ -130,6 +130,7 @@ const TokenDetail = () => {
               </div>
 
               <ActivityFeed activities={mockActivities} />
+              <ChatBox title={`💬 ${token.ticker} CHAT`} context={token.name} />
             </div>
 
             {/* Sidebar */}

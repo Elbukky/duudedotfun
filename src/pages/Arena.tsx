@@ -110,6 +110,11 @@ const Arena = () => {
               ))}
             </div>
           )}
+
+          {/* Arena Chat */}
+          <div className="mt-8">
+            <ChatBox title="💬 ARENA CHAT" context="arena" />
+          </div>
         </div>
       </div>
     </div>
