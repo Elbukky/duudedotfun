@@ -3,6 +3,7 @@ import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import TokenCard from "@/components/TokenCard";
+import ChatBox from "@/components/ChatBox";
 import { mockTokens } from "@/lib/mockData";
 
 const badges = [
