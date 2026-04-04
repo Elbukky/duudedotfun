@@ -119,20 +119,18 @@ const TokenDetail = () => {
                 </div>
               </div>
 
-              {/* Missions & Chat side by side */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-display text-sm text-foreground mb-3">🏆 MEME MISSIONS</h3>
-                  <div className="space-y-3">
-                    {mockMissions.map((m, i) => (
-                      <MissionCard key={m.id} mission={m} index={i} />
-                    ))}
-                  </div>
+              {/* Missions */}
+              <div>
+                <h3 className="font-display text-sm text-foreground mb-3">🏆 MEME MISSIONS</h3>
+                <div className="space-y-3">
+                  {mockMissions.map((m, i) => (
+                    <MissionCard key={m.id} mission={m} index={i} />
+                  ))}
                 </div>
-                <ChatBox title={`💬 ${token.ticker} CHAT`} context={token.name} />
               </div>
 
               <ActivityFeed activities={mockActivities} />
+              <ChatBox title={`💬 ${token.ticker} CHAT`} context={token.name} />
             </div>
 
             {/* Sidebar */}
