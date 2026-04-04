@@ -1,12 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Swords, Rocket, User, Menu, X } from "lucide-react";
+import { Flame, Swords, Rocket, User, Menu, X, BookOpen } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { path: "/", label: "Home", icon: Flame },
   { path: "/arena", label: "Arena", icon: Swords },
   { path: "/launch", label: "Launch", icon: Rocket },
+  { path: "/docs", label: "Docs", icon: BookOpen },
   { path: "/creator/1", label: "Profile", icon: User },
 ];
 

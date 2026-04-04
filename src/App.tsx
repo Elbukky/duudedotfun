@@ -8,6 +8,7 @@ import LaunchToken from "./pages/LaunchToken.tsx";
 import TokenDetail from "./pages/TokenDetail.tsx";
 import Arena from "./pages/Arena.tsx";
 import CreatorProfile from "./pages/CreatorProfile.tsx";
+import Docs from "./pages/Docs.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/launch" element={<LaunchToken />} />
           <Route path="/token/:id" element={<TokenDetail />} />
           <Route path="/arena" element={<Arena />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="/creator/:id" element={<CreatorProfile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
