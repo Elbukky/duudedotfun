@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Upload, Sparkles } from "lucide-react";
+import { Upload, Sparkles, Twitter, Globe, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { categories } from "@/lib/mockData";
 
@@ -10,6 +10,10 @@ const LaunchToken = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Degen');
   const [launched, setLaunched] = useState(false);
+  const [twitter, setTwitter] = useState('');
+  const [telegram, setTelegram] = useState('');
+  const [discord, setDiscord] = useState('');
+  const [website, setWebsite] = useState('');
 
   if (launched) {
     return (
@@ -93,6 +97,30 @@ const LaunchToken = () => {
                       </motion.button>
                     ))}
                   </div>
+                </div>
+              </div>
+
+              {/* Social Links - Optional */}
+              <div className="card-cartoon space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-sm text-foreground">🔗 SOCIAL LINKS</h3>
+                  <span className="badge-sticker text-[10px] bg-muted text-muted-foreground border-muted">OPTIONAL</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Twitter size={16} className="text-muted-foreground shrink-0" />
+                  <input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://x.com/yourtoken" className="w-full bg-muted border-2 border-primary/20 rounded-xl px-4 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <MessageCircle size={16} className="text-muted-foreground shrink-0" />
+                  <input value={telegram} onChange={(e) => setTelegram(e.target.value)} placeholder="https://t.me/yourgroup" className="w-full bg-muted border-2 border-primary/20 rounded-xl px-4 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <MessageCircle size={16} className="text-muted-foreground shrink-0" />
+                  <input value={discord} onChange={(e) => setDiscord(e.target.value)} placeholder="https://discord.gg/yourinvite" className="w-full bg-muted border-2 border-primary/20 rounded-xl px-4 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Globe size={16} className="text-muted-foreground shrink-0" />
+                  <input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://yourtoken.com" className="w-full bg-muted border-2 border-primary/20 rounded-xl px-4 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors" />
                 </div>
               </div>
 
