@@ -1,6 +1,6 @@
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
-import { BookOpen, Zap, Coins, ChevronDown } from "lucide-react";
+import { BookOpen, Zap, Coins, ChevronDown, DollarSign } from "lucide-react";
 import { useState } from "react";
 
 const sections = [
