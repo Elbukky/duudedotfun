@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Upload, Sparkles } from "lucide-react";
+import { Upload, Sparkles, Twitter, Globe, MessageCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { categories } from "@/lib/mockData";
 
@@ -10,6 +10,10 @@ const LaunchToken = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Degen');
   const [launched, setLaunched] = useState(false);
+  const [twitter, setTwitter] = useState('');
+  const [telegram, setTelegram] = useState('');
+  const [discord, setDiscord] = useState('');
+  const [website, setWebsite] = useState('');
 
   if (launched) {
     return (
