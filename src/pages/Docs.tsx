@@ -1,6 +1,6 @@
 import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
-import { BookOpen, Zap, Coins, ChevronDown } from "lucide-react";
+import { BookOpen, Zap, Coins, ChevronDown, DollarSign } from "lucide-react";
 import { useState } from "react";
 
 const sections = [
@@ -130,6 +130,126 @@ const sections = [
         </p>
         <p className="text-muted-foreground font-body">
           In short, MemeArena tokenomics are designed to make every launch <span className="text-primary">easy to understand</span>, <span className="text-primary">fairer for traders</span>, <span className="text-primary">healthier for creators</span>, and <span className="text-primary">exciting from day one</span>.
+        </p>
+      </>
+    ),
+  },
+  {
+    icon: DollarSign,
+    title: "Fees & Creator Rewards",
+    desc: "Transparent fees, token allocations, and how creators earn.",
+    content: (
+      <>
+        <p className="text-muted-foreground font-body mb-4">
+          MemeArena uses transparent fees and token allocations to reward creators, fund the platform, and incentivize Arena participation.
+        </p>
+
+        <h4 className="text-lg font-display text-foreground mb-2">1) Launch Fee</h4>
+        <p className="text-muted-foreground font-body mb-1">
+          <span className="text-primary font-semibold">$2 per token launch</span> → platform only
+        </p>
+        <p className="text-muted-foreground font-body mb-6">
+          Covers operational costs, hosting, and early Arena reward pool funding.
+        </p>
+
+        <h4 className="text-lg font-display text-foreground mb-3">2) Trading Fees (0.3% per trade)</h4>
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm border border-primary/20 rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-primary/10">
+                <th className="text-left p-3 text-foreground font-display">Allocation</th>
+                <th className="text-left p-3 text-foreground font-display">% of Trade</th>
+                <th className="text-left p-3 text-foreground font-display">Purpose</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted-foreground font-body">
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Creator reward</td>
+                <td className="p-3 text-primary font-semibold">0.05%</td>
+                <td className="p-3">Ongoing passive income for token creators</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Arena reward pool</td>
+                <td className="p-3 text-primary font-semibold">0.05%</td>
+                <td className="p-3">Rewards top tokens and active holders during Arena</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Platform revenue</td>
+                <td className="p-3 text-primary font-semibold">0.20%</td>
+                <td className="p-3">Covers platform operations and maintenance</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 className="text-lg font-display text-foreground mb-3">3) Token Allocation (1B total)</h4>
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm border border-primary/20 rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-primary/10">
+                <th className="text-left p-3 text-foreground font-display">Allocation</th>
+                <th className="text-left p-3 text-foreground font-display">% of Total</th>
+                <th className="text-left p-3 text-foreground font-display">Purpose</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted-foreground font-body">
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Bonding curve / Public market</td>
+                <td className="p-3 text-primary font-semibold">85%</td>
+                <td className="p-3">Tradable market supply; powers price discovery</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Creator allocation</td>
+                <td className="p-3 text-primary font-semibold">5%</td>
+                <td className="p-3">Locked 24h → linear vesting over 14 days; optional Arena bonus for winners</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Reserve allocation</td>
+                <td className="p-3 text-primary font-semibold">10%</td>
+                <td className="p-3">Supports token lifecycle and platform mechanics</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 className="text-lg font-display text-foreground mb-3">Reserve Breakdown (10%)</h4>
+        <div className="overflow-x-auto mb-6">
+          <table className="w-full text-sm border border-primary/20 rounded-xl overflow-hidden">
+            <thead>
+              <tr className="bg-primary/10">
+                <th className="text-left p-3 text-foreground font-display">Use</th>
+                <th className="text-left p-3 text-foreground font-display">% of Total Supply</th>
+                <th className="text-left p-3 text-foreground font-display">Purpose</th>
+              </tr>
+            </thead>
+            <tbody className="text-muted-foreground font-body">
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Arena reward reserve</td>
+                <td className="p-3 text-primary font-semibold">3%</td>
+                <td className="p-3">Extra rewards for top tokens and engaged holders</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Liquidity / Graduation reserve</td>
+                <td className="p-3 text-primary font-semibold">5%</td>
+                <td className="p-3">Ensures liquidity and smooth token graduation</td>
+              </tr>
+              <tr className="border-t border-primary/10">
+                <td className="p-3">Platform / Treasury buffer</td>
+                <td className="p-3 text-primary font-semibold">2%</td>
+                <td className="p-3">Operational safety and ecosystem incentives</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 className="text-lg font-display text-foreground mb-3">Summary</h4>
+        <ul className="list-none text-muted-foreground font-body space-y-2 mb-4">
+          <li>💰 <strong className="text-foreground">Launch Fee:</strong> $2 → platform</li>
+          <li>💰 <strong className="text-foreground">Trading Fee:</strong> 0.3% → 0.05% creator / 0.05% Arena pool / 0.20% platform</li>
+          <li>💰 <strong className="text-foreground">Token Supply:</strong> 85% public / 5% creator (vesting) / 10% reserve (3% Arena, 5% liquidity, 2% platform)</li>
+        </ul>
+        <p className="text-muted-foreground font-body">
+          This design aligns incentives for creators, rewards performance in the Arena, ensures community engagement, and keeps the platform sustainable.
         </p>
       </>
     ),
