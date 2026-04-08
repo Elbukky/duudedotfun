@@ -23,7 +23,7 @@ const Navbar = () => {
             className="text-2xl font-display text-primary text-glow-purple"
             whileHover={{ scale: 1.05 }}
           >
-            <span className="text-primary">duude</span><span className="text-accent">.</span><span className="text-secondary">fun</span>
+            <span className="text-foreground">du</span><span className="text-primary">ude</span><span className="text-accent">.</span><span className="text-secondary">fun</span>
           </motion.span>
         </Link>
 
