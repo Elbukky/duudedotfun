@@ -265,7 +265,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t-2 border-primary/20 py-8 px-4">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="font-display text-sm"><span className="text-foreground">duude</span><span className="text-primary text-glow-purple">.</span><span className="text-secondary text-glow-green">fun</span></span>
+          <span className="font-display text-sm tracking-wider" style={{ WebkitTextStroke: '1px hsl(var(--primary))', color: 'transparent' }}>duude<span style={{ WebkitTextStroke: '1px hsl(var(--secondary))', color: 'transparent' }}>.fun</span></span>
           <p className="text-xs text-muted-foreground font-body">© 2026 duude.fun. Built for degens, by degens.</p>
           <div className="flex gap-4">
             {['Twitter', 'Discord', 'Docs'].map((l) => (
