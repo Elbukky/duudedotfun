@@ -7,12 +7,12 @@ const sections = [
   {
     icon: BookOpen,
     title: "Getting Started",
-    desc: "Launch your first memecoin on MemeArena in under 5 minutes.",
+    desc: "Launch your first memecoin on duude.fun in under 5 minutes.",
     content: (
       <>
-        <h3 className="text-xl font-display text-primary mb-3">Launch Your First Memecoin on MemeArena in 5 Minutes</h3>
+        <h3 className="text-xl font-display text-primary mb-3">Launch Your First Memecoin on duude.fun in 5 Minutes</h3>
         <p className="text-muted-foreground font-body mb-4">
-          MemeArena lets anyone launch a memecoin quickly without needing to code or set up liquidity manually. The platform is designed to make launching simple, fun, and competitive from day one.
+          duude.fun lets anyone launch a memecoin quickly without needing to code or set up liquidity manually. The platform is designed to make launching simple, fun, and competitive from day one.
         </p>
         <p className="text-muted-foreground font-body mb-4">
           To get started, a user only needs a supported wallet, enough funds for gas and launch fees, and basic token details like a name, ticker, logo, and short meme description.
@@ -25,7 +25,7 @@ const sections = [
           <li>Review launch preview</li>
           <li>Confirm launch</li>
         </ol>
-        <p className="text-muted-foreground font-body mb-3">Once the transaction is confirmed, MemeArena automatically:</p>
+        <p className="text-muted-foreground font-body mb-3">Once the transaction is confirmed, duude.fun automatically:</p>
         <ul className="list-none text-muted-foreground font-body space-y-1 mb-4">
           <li>✅ Deploys the token</li>
           <li>✅ Creates its launch market</li>
@@ -86,7 +86,7 @@ const sections = [
     content: (
       <>
         <p className="text-muted-foreground font-body mb-4">
-          Every token launched on MemeArena follows a fixed token distribution model to keep launches simple, fair, and consistent across the platform.
+          Every token launched on duude.fun follows a fixed token distribution model to keep launches simple, fair, and consistent across the platform.
         </p>
         <h4 className="text-lg font-display text-foreground mb-2">Token Distribution (1 Billion Total Supply)</h4>
         <div className="grid grid-cols-3 gap-3 mb-6">
@@ -119,7 +119,7 @@ const sections = [
         </ul>
         <h4 className="text-lg font-display text-foreground mb-2">Bonding Curve Pricing</h4>
         <p className="text-muted-foreground font-body mb-3">
-          MemeArena uses a bonding curve pricing model, which means the token price is not fixed. Instead:
+          duude.fun uses a bonding curve pricing model, which means the token price is not fixed. Instead:
         </p>
         <ul className="list-none text-muted-foreground font-body space-y-1 mb-4">
           <li>📈 When users buy, the price goes up</li>
@@ -129,7 +129,7 @@ const sections = [
           This creates an active market from launch and gives early buyers an advantage as demand increases.
         </p>
         <p className="text-muted-foreground font-body">
-          In short, MemeArena tokenomics are designed to make every launch <span className="text-primary">easy to understand</span>, <span className="text-primary">fairer for traders</span>, <span className="text-primary">healthier for creators</span>, and <span className="text-primary">exciting from day one</span>.
+          In short, duude.fun tokenomics are designed to make every launch <span className="text-primary">easy to understand</span>, <span className="text-primary">fairer for traders</span>, <span className="text-primary">healthier for creators</span>, and <span className="text-primary">exciting from day one</span>.
         </p>
       </>
     ),
@@ -141,7 +141,7 @@ const sections = [
     content: (
       <>
         <p className="text-muted-foreground font-body mb-4">
-          MemeArena uses transparent fees and token allocations to reward creators, fund the platform, and incentivize Arena participation.
+          duude.fun uses transparent fees and token allocations to reward creators, fund the platform, and incentivize Arena participation.
         </p>
 
         <h4 className="text-lg font-display text-foreground mb-2">1) Launch Fee</h4>
@@ -308,7 +308,7 @@ const Docs = () => (
         📚 Documentation
       </motion.h1>
       <p className="text-muted-foreground font-body text-lg mb-12 max-w-2xl">
-        Everything you need to know about launching, trading, and battling memecoins on MEMEARENA.
+        Everything you need to know about launching, trading, and battling memecoins on <span className="text-primary">duude</span><span className="text-accent">.</span><span className="text-secondary">fun</span>.
       </p>
 
       <div className="flex flex-col gap-4 max-w-4xl">
