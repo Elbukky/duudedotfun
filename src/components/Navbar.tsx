@@ -23,11 +23,15 @@ const Navbar = () => {
             className="text-2xl font-display tracking-wider"
             whileHover={{ scale: 1.05 }}
             style={{
-              WebkitTextStroke: '1.5px hsl(var(--primary))',
-              color: 'transparent',
+              background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--electric-blue)), hsl(var(--slime-green)), hsl(var(--gold)))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              WebkitTextStroke: '1.5px transparent',
+              backgroundClip: 'text',
+              filter: 'drop-shadow(0 0 8px hsl(var(--neon-purple) / 0.3))',
             }}
           >
-            duude<span style={{ WebkitTextStroke: '1.5px hsl(var(--secondary))', color: 'transparent' }}>.fun</span>
+            duude.fun
           </motion.span>
         </Link>
 
