@@ -20,10 +20,14 @@ const Navbar = () => {
       <div className="container flex items-center justify-between h-16">
         <Link to="/" className="flex items-center gap-2">
           <motion.span
-            className="text-2xl font-display text-primary text-glow-purple"
+            className="text-2xl font-display tracking-wider"
             whileHover={{ scale: 1.05 }}
+            style={{
+              WebkitTextStroke: '1.5px hsl(var(--primary))',
+              color: 'transparent',
+            }}
           >
-            <span className="text-foreground">duude</span><span className="text-primary">.</span><span className="text-secondary">fun</span>
+            duude<span style={{ WebkitTextStroke: '1.5px hsl(var(--secondary))', color: 'transparent' }}>.fun</span>
           </motion.span>
         </Link>
 
