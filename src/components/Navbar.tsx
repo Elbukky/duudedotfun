@@ -23,7 +23,7 @@ const Navbar = () => {
             className="text-2xl font-display text-primary text-glow-purple"
             whileHover={{ scale: 1.05 }}
           >
-            🚀 MEME<span className="text-secondary">ARENA</span>
+            <span className="text-primary">duude</span><span className="text-accent">.</span><span className="text-secondary">fun</span>
           </motion.span>
         </Link>
 

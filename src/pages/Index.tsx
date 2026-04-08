@@ -27,7 +27,7 @@ const Index = () => {
                 transition={{ duration: 0.6 }}
               >
                 <span className="badge-sticker bg-primary/20 text-primary border-primary/40 mb-4 inline-block">
-                  ⚡ THE MEME ARENA IS LIVE
+                  ⚡ duude.fun IS LIVE
                 </span>
                 <h1 className="text-4xl md:text-6xl lg:text-7xl font-display leading-tight mb-4">
                   <span className="text-foreground">LAUNCH YOUR</span>
@@ -39,7 +39,7 @@ const Index = () => {
                   <span className="text-accent text-glow-gold">HYPE.</span>
                 </h1>
                 <p className="text-lg text-muted-foreground font-body max-w-md mx-auto lg:mx-0 mb-8">
-                  Create meme coins, trade them instantly, and battle for glory in the ultimate memecoin arena.
+                  Create meme coins, trade them instantly, and battle for glory on duude.fun — the ultimate memecoin arena.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                   <Link to="/launch">
@@ -265,8 +265,8 @@ const Index = () => {
       {/* Footer */}
       <footer className="border-t-2 border-primary/20 py-8 px-4">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="font-display text-sm text-primary text-glow-purple">🚀 MEME<span className="text-secondary">ARENA</span></span>
-          <p className="text-xs text-muted-foreground font-body">© 2026 MemeArena. Built for degens, by degens.</p>
+          <span className="font-display text-sm"><span className="text-primary text-glow-purple">duude</span><span className="text-accent">.</span><span className="text-secondary text-glow-green">fun</span></span>
+          <p className="text-xs text-muted-foreground font-body">© 2026 duude.fun. Built for degens, by degens.</p>
           <div className="flex gap-4">
             {['Twitter', 'Discord', 'Docs'].map((l) => (
               <span key={l} className="text-xs text-muted-foreground font-body hover:text-primary cursor-pointer transition-colors">{l}</span>

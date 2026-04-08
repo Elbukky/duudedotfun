@@ -308,7 +308,7 @@ const Docs = () => (
         📚 Documentation
       </motion.h1>
       <p className="text-muted-foreground font-body text-lg mb-12 max-w-2xl">
-        Everything you need to know about launching, trading, and battling memecoins on MEMEARENA.
+        Everything you need to know about launching, trading, and battling memecoins on <span className="text-primary">duude</span><span className="text-accent">.</span><span className="text-secondary">fun</span>.
       </p>
 
       <div className="flex flex-col gap-4 max-w-4xl">
