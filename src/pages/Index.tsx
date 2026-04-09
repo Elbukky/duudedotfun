@@ -26,6 +26,9 @@ const Index = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
+                <span className="badge-sticker bg-primary/20 text-primary border-primary/40 mb-4 inline-block">
+                  ⚡ duude.fun IS LIVE
+                </span>
                 <h1 className="text-4xl md:text-6xl lg:text-7xl font-display leading-tight mb-4">
                   <span className="text-foreground">DUDE,</span>
                   <br />
@@ -37,9 +40,6 @@ const Index = () => {
                 <p className="text-lg md:text-2xl font-display text-muted-foreground mb-4 tracking-wide">
                   LAUNCH YOUR <span className="text-primary">MEME.</span> PROVE YOUR <span className="text-accent">HYPE.</span>
                 </p>
-                <span className="badge-sticker bg-primary/20 text-primary border-primary/40 mb-4 inline-block">
-                  ⚡ duude.fun IS LIVE
-                </span>
                 <p className="text-lg text-muted-foreground font-body max-w-md mx-auto lg:mx-0 mb-8">
                   Create meme coins, trade them instantly, and battle for glory on duude.fun — the ultimate memecoin arena.
                 </p>
