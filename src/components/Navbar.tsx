@@ -23,7 +23,7 @@ const Navbar = () => {
             className="text-2xl font-display tracking-wider"
             whileHover={{ scale: 1.05 }}
             style={{
-              background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--electric-blue)), hsl(var(--slime-green)), hsl(var(--gold)))',
+              background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)))',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               WebkitTextStroke: '1.5px transparent',
