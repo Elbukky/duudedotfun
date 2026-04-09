@@ -26,19 +26,20 @@ const Index = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
-                <p className="text-lg md:text-xl font-body italic text-muted-foreground mb-4">"Dude, just launch it..."</p>
+                <h1 className="text-4xl md:text-6xl lg:text-7xl font-display leading-tight mb-4">
+                  <span className="text-foreground">DUDE,</span>
+                  <br />
+                  <span className="text-primary text-glow-purple">JUST</span>{" "}
+                  <span className="text-secondary text-glow-green">LAUNCH</span>
+                  <br />
+                  <span className="text-accent text-glow-gold">IT...</span>
+                </h1>
+                <p className="text-lg md:text-2xl font-display text-muted-foreground mb-4 tracking-wide">
+                  LAUNCH YOUR <span className="text-primary">MEME.</span> PROVE YOUR <span className="text-accent">HYPE.</span>
+                </p>
                 <span className="badge-sticker bg-primary/20 text-primary border-primary/40 mb-4 inline-block">
                   ⚡ duude.fun IS LIVE
                 </span>
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-display leading-tight mb-4">
-                  <span className="text-foreground">LAUNCH YOUR</span>
-                  <br />
-                  <span className="text-primary text-glow-purple">MEME.</span>
-                  <br />
-                  <span className="text-secondary text-glow-green">PROVE YOUR</span>
-                  <br />
-                  <span className="text-accent text-glow-gold">HYPE.</span>
-                </h1>
                 <p className="text-lg text-muted-foreground font-body max-w-md mx-auto lg:mx-0 mb-8">
                   Create meme coins, trade them instantly, and battle for glory on duude.fun — the ultimate memecoin arena.
                 </p>
