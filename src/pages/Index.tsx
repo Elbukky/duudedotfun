@@ -30,12 +30,22 @@ const Index = () => {
                   ⚡ duude.fun IS LIVE
                 </span>
                 <h1 className="text-4xl md:text-6xl lg:text-7xl font-display leading-tight mb-4">
-                  <span className="text-foreground">DUDE,</span>
-                  <br />
-                  <span className="text-primary text-glow-purple">JUST</span>{" "}
-                  <span className="text-secondary text-glow-green">LAUNCH</span>
-                  <br />
-                  <span className="text-accent text-glow-gold">IT...</span>
+                  <span
+                    className="inline-block animate-gradient-shift"
+                    style={{
+                      background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)), hsl(var(--neon-purple)))',
+                      backgroundSize: '300% 100%',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}
+                  >
+                    DUDE,
+                    <br />
+                    JUST LAUNCH
+                    <br />
+                    IT...
+                  </span>
                 </h1>
                 <p className="text-lg md:text-2xl font-display text-muted-foreground mb-4 tracking-wide">
                   LAUNCH YOUR <span className="text-primary">MEME.</span> PROVE YOUR <span className="text-accent">HYPE.</span>
