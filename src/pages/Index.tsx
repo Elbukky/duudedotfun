@@ -26,6 +26,7 @@ const Index = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
               >
+                <p className="text-lg md:text-xl font-body italic text-muted-foreground mb-4">"Dude, just launch it..."</p>
                 <span className="badge-sticker bg-primary/20 text-primary border-primary/40 mb-4 inline-block">
                   ⚡ duude.fun IS LIVE
                 </span>
