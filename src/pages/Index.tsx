@@ -33,7 +33,7 @@ const Index = () => {
                   <span
                     className="inline-block animate-gradient-shift"
                     style={{
-                      background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--foreground)), hsl(var(--slime-green)), hsl(var(--gold)), hsl(var(--foreground)), hsl(var(--neon-purple)))',
+                      background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)), hsl(var(--neon-purple)))',
                       backgroundSize: '300% 100%',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
