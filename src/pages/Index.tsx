@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight } from "lucide-react";
 import mascot from "@/assets/mascot.png";
+import pepeAstronaut from "@/assets/pepe-astronaut.png";
 import TokenCard from "@/components/TokenCard";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import { mockTokens, mockCreators } from "@/lib/mockData";
@@ -17,7 +18,58 @@ const Index = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="pt-24 pb-16 px-4 overflow-hidden">
+      <section className="pt-24 pb-16 px-4 overflow-hidden relative">
+        {/* Faint moon */}
+        <div className="absolute top-12 right-[10%] w-24 h-24 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-muted/30 to-muted/10 opacity-30 blur-[1px] pointer-events-none" />
+        <div className="absolute top-16 right-[12%] w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted/20 opacity-20 pointer-events-none" />
+        <div className="absolute top-24 right-[11%] w-3 h-3 md:w-5 md:h-5 rounded-full bg-muted/15 opacity-20 pointer-events-none" />
+
+        {/* Twinkling stars */}
+        {[
+          { top: '8%', left: '5%', size: 3, delay: 0 },
+          { top: '15%', left: '20%', size: 2, delay: 0.5 },
+          { top: '5%', left: '40%', size: 4, delay: 1 },
+          { top: '20%', left: '60%', size: 2, delay: 0.3 },
+          { top: '10%', left: '75%', size: 3, delay: 0.8 },
+          { top: '30%', left: '85%', size: 2, delay: 1.2 },
+          { top: '25%', left: '15%', size: 2, delay: 0.7 },
+          { top: '12%', left: '50%', size: 3, delay: 0.4 },
+          { top: '35%', left: '92%', size: 2, delay: 1.5 },
+          { top: '6%', left: '88%', size: 3, delay: 0.2 },
+        ].map((star, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full bg-foreground/15 pointer-events-none"
+            style={{ top: star.top, left: star.left, width: star.size, height: star.size }}
+            animate={{ opacity: [0.1, 0.4, 0.1] }}
+            transition={{ repeat: Infinity, duration: 2 + star.delay, delay: star.delay }}
+          />
+        ))}
+
+        {/* Floating Pepe astronaut - top left */}
+        <motion.img
+          src={pepeAstronaut}
+          alt="Pepe astronaut floating"
+          className="absolute opacity-[0.15] pointer-events-none w-28 md:w-40 lg:w-48"
+          style={{ top: '5%', left: '3%' }}
+          width={512}
+          height={512}
+          loading="lazy"
+          animate={{ y: [0, -12, 0], rotate: [0, 5, -3, 0] }}
+          transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+        />
+        {/* Floating Pepe astronaut - bottom right */}
+        <motion.img
+          src={pepeAstronaut}
+          alt="Pepe astronaut floating"
+          className="absolute opacity-[0.1] pointer-events-none w-16 md:w-24 hidden md:block"
+          style={{ bottom: '10%', right: '5%', transform: 'scaleX(-1)' }}
+          width={512}
+          height={512}
+          loading="lazy"
+          animate={{ y: [0, -8, 0], rotate: [0, -4, 3, 0] }}
+          transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }}
+        />
         <div className="container">
           <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
             <div className="flex-1 text-center lg:text-left">
