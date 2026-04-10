@@ -53,11 +53,10 @@ const Navbar = () => {
             );
           })}
           <motion.button
-            className="ml-3 relative font-display text-sm px-6 py-2 rounded-xl bg-transparent text-primary border-[3px] border-primary shadow-[0_4px_0_0_hsl(var(--neon-purple)/0.4),0_0_20px_hsl(var(--neon-purple)/0.2)] active:shadow-[0_0_20px_hsl(var(--neon-purple)/0.2)] active:translate-y-[3px] transition-all duration-100 hover:bg-primary/5 hover:shadow-[0_4px_0_0_hsl(var(--neon-purple)/0.5),0_0_30px_hsl(var(--neon-purple)/0.3)]"
+            className="ml-3 font-display text-sm px-6 py-2 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[5px] border-b-primary/60 active:border-b-2 active:translate-y-[3px] transition-all duration-100 shadow-[0_4px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none hover:brightness-110"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
-            <span className="absolute inset-[4px] border border-primary/20 rounded-lg pointer-events-none" />
             🔗 Connect Wallet
           </motion.button>
         </div>
@@ -83,8 +82,7 @@ const Navbar = () => {
               </div>
             </Link>
           ))}
-          <button className="relative w-full font-display text-sm px-5 py-3 rounded-xl bg-transparent text-primary border-[3px] border-primary shadow-[0_4px_0_0_hsl(var(--neon-purple)/0.4),0_0_20px_hsl(var(--neon-purple)/0.2)] active:shadow-[0_0_20px_hsl(var(--neon-purple)/0.2)] active:translate-y-[3px] transition-all duration-100">
-            <span className="absolute inset-[4px] border border-primary/20 rounded-lg pointer-events-none" />
+          <button className="w-full font-display text-sm px-5 py-3 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[5px] border-b-primary/60 active:border-b-2 active:translate-y-[3px] transition-all duration-100 shadow-[0_4px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none">
             🔗 Connect Wallet
           </button>
         </motion.div>
