@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight } from "lucide-react";
 import mascot from "@/assets/mascot.png";
+import pepeAstronaut from "@/assets/pepe-astronaut.png";
 import TokenCard from "@/components/TokenCard";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import { mockTokens, mockCreators } from "@/lib/mockData";
