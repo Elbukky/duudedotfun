@@ -53,11 +53,11 @@ const Navbar = () => {
             );
           })}
           <motion.button
-            className="ml-3 font-display text-sm px-6 py-2 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[5px] border-b-primary/60 active:border-b-2 active:translate-y-[3px] transition-all duration-100 shadow-[0_4px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none hover:brightness-110"
+            className="ml-3 font-display text-xs px-4 py-1.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none hover:brightness-110"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
           >
-            🔗 Connect Wallet
+            Connect Wallet
           </motion.button>
         </div>
 
@@ -82,8 +82,8 @@ const Navbar = () => {
               </div>
             </Link>
           ))}
-          <button className="w-full font-display text-sm px-5 py-3 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[5px] border-b-primary/60 active:border-b-2 active:translate-y-[3px] transition-all duration-100 shadow-[0_4px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none">
-            🔗 Connect Wallet
+          <button className="w-full font-display text-xs px-4 py-2.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none">
+            Connect Wallet
           </button>
         </motion.div>
       )}
