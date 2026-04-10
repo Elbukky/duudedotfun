@@ -46,29 +46,41 @@ const Index = () => {
           />
         ))}
 
-        {/* Floating Pepe astronaut - top left */}
+        {/* Floating Pepe astronaut - right side middle (main blank area) */}
         <motion.img
           src={pepeAstronaut}
           alt="Pepe astronaut floating"
-          className="absolute opacity-[0.15] pointer-events-none w-28 md:w-40 lg:w-48"
-          style={{ top: '5%', left: '3%' }}
+          className="absolute opacity-[0.18] pointer-events-none w-32 md:w-44 lg:w-52 hidden md:block"
+          style={{ top: '30%', right: '18%' }}
           width={512}
           height={512}
           loading="lazy"
-          animate={{ y: [0, -12, 0], rotate: [0, 5, -3, 0] }}
+          animate={{ y: [0, -14, 0], rotate: [0, 5, -3, 0] }}
           transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
         />
-        {/* Floating Pepe astronaut - bottom right */}
+        {/* Floating Pepe astronaut - bottom left (below buttons) */}
         <motion.img
           src={pepeAstronaut}
           alt="Pepe astronaut floating"
-          className="absolute opacity-[0.1] pointer-events-none w-16 md:w-24 hidden md:block"
-          style={{ bottom: '10%', right: '5%', transform: 'scaleX(-1)' }}
+          className="absolute opacity-[0.12] pointer-events-none w-20 md:w-28"
+          style={{ bottom: '5%', left: '40%', transform: 'scaleX(-1)' }}
           width={512}
           height={512}
           loading="lazy"
           animate={{ y: [0, -8, 0], rotate: [0, -4, 3, 0] }}
           transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }}
+        />
+        {/* Small Pepe astronaut - top right corner */}
+        <motion.img
+          src={pepeAstronaut}
+          alt="Pepe astronaut floating"
+          className="absolute opacity-[0.1] pointer-events-none w-16 md:w-20 hidden lg:block"
+          style={{ top: '8%', right: '3%', transform: 'scaleX(-1) rotate(15deg)' }}
+          width={512}
+          height={512}
+          loading="lazy"
+          animate={{ y: [0, -6, 0] }}
+          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.5 }}
         />
         <div className="container">
           <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
