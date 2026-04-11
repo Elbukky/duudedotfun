@@ -9,6 +9,7 @@ import ActivityFeed from "@/components/ActivityFeed";
 import ChatBox from "@/components/ChatBox";
 import CandlestickChart from "@/components/CandlestickChart";
 import StatusBadge from "@/components/StatusBadge";
+import AuraWrapper from "@/components/AuraWrapper";
 import { mockTokens, mockMissions, mockActivities } from "@/lib/mockData";
 
 const TokenDetail = () => {
@@ -25,37 +26,39 @@ const TokenDetail = () => {
           </Link>
 
           {/* Header */}
-          <motion.div
-            className="card-cartoon mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <motion.span className="text-6xl" animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
-                {token.logo}
-              </motion.span>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="font-display text-2xl md:text-3xl text-foreground">{token.name}</h1>
-                  <span className="font-display text-lg text-primary">${token.ticker}</span>
-                  <StatusBadge status={token.status} />
+          <AuraWrapper token={token} rank={token.arenaRank} enhanced>
+            <motion.div
+              className="card-cartoon mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                <motion.span className="text-6xl" animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
+                  {token.logo}
+                </motion.span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="font-display text-2xl md:text-3xl text-foreground">{token.name}</h1>
+                    <span className="font-display text-lg text-primary">${token.ticker}</span>
+                    <StatusBadge status={token.status} />
+                  </div>
+                  <p className="text-sm text-muted-foreground font-body mt-1">{token.lore}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Link to={`/creator/${token.creatorId}`} className="text-xs text-primary font-body hover:underline">
+                      by {token.creatorName}
+                    </Link>
+                    <span className="text-xs text-muted-foreground">· {token.launchedAt}</span>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground font-body mt-1">{token.lore}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Link to={`/creator/${token.creatorId}`} className="text-xs text-primary font-body hover:underline">
-                    by {token.creatorName}
-                  </Link>
-                  <span className="text-xs text-muted-foreground">· {token.launchedAt}</span>
+                <div className="text-right">
+                  <p className="font-display text-2xl text-foreground">${token.price.toFixed(6)}</p>
+                  <p className={`text-sm font-body ${token.priceChange24h >= 0 ? "text-secondary" : "text-destructive"}`}>
+                    {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
+                  </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-display text-2xl text-foreground">${token.price.toFixed(6)}</p>
-                <p className={`text-sm font-body ${token.priceChange24h >= 0 ? "text-secondary" : "text-destructive"}`}>
-                  {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </AuraWrapper>
 
           {/* Stats row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
