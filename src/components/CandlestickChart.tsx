@@ -345,7 +345,7 @@ const CandlestickChart = ({
   // Calculate candle spacing within fixed viewBox
   const totalCandles = candles.length;
   const candleSpacing = CHART_WIDTH / totalCandles;
-  const candleWidth = Math.min(16, Math.max(4, candleSpacing * 0.6));
+  const candleWidth = Math.min(20, Math.max(6, candleSpacing * 0.65));
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;
@@ -415,7 +415,7 @@ const CandlestickChart = ({
       <div className="relative w-full" style={{ height: 200 }}>
         <svg
           viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`}
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="none"
           className="w-full h-full"
         >
           {/* Grid lines */}

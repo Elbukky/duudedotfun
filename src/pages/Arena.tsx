@@ -83,17 +83,20 @@ const Arena = () => {
   // Build leaderboard display tokens
   // Absolute normalization baseline for arena score.
   // On-chain formula: (retainedBuyers*300) + (uniqueBuyers*100) + (buyVolumeUSDC/1e18) + (buyPressureBps*10) + (holderCount*50) + (percentCompleteBps*5)
-  // - buyPressureBps max 10000 → 100,000
-  // - percentCompleteBps max 10000 → 50,000
-  // - 50 retained buyers → 15,000; 100 unique → 10,000; 500 USDC → 500; 200 holders → 10,000
-  // A strong graduated token scores ~140K. Use 150K as the "100" ceiling.
-  const SCORE_NORMALIZATION_MAX = 150_000n;
+  // buyPressureBps=10000 (100%) for a fresh token with 1 buy and 0 sells gives 100K raw points.
+  // To prevent new tokens from scoring high, we apply an activity multiplier:
+  // activityMultiplier = min(totalTrades / 20, 1) — ramps up over 20 trades.
+  // A strong graduated token with lots of activity scores ~185K. Use 200K as the "100" ceiling.
+  const SCORE_NORMALIZATION_MAX = 200_000;
 
-  // Normalize raw score to 0-100 using absolute baseline (not relative to peers)
-  const normalizeScore = (raw: bigint): number => {
-    if (raw === 0n) return 0;
-    const normalized = Math.round((Number(raw) * 100) / Number(SCORE_NORMALIZATION_MAX));
-    return Math.min(100, Math.max(1, normalized)); // at least 1 if non-zero
+  // Normalize raw score to 0-100, dampened by activity level
+  const normalizeScore = (entry: ArenaParticipantScore): number => {
+    if (entry.score === 0n) return 0;
+    const totalTrades = Number(entry.metrics.buyCount) + Number(entry.metrics.sellCount);
+    const activityMultiplier = Math.min(totalTrades / 20, 1);
+    const adjusted = Number(entry.score) * activityMultiplier;
+    const normalized = Math.round((adjusted * 100) / SCORE_NORMALIZATION_MAX);
+    return Math.min(100, Math.max(1, normalized)); // at least 1 if non-zero raw
   };
 
   const leaderboardTokens: (Token & { arenaScore: string })[] = (battleData?.leaderboard || []).map((entry, i) => {
@@ -118,7 +121,7 @@ const Arena = () => {
       arenaRank: i + 1,
       status: 'fighting',
     };
-    return { ...baseToken, arenaRank: i + 1, arenaScore: normalizeScore(entry.score).toString() };
+    return { ...baseToken, arenaRank: i + 1, arenaScore: normalizeScore(entry).toString() };
   });
 
   // If no battle data, show all tokens sorted by hype as fallback

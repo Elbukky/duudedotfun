@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { usePostMigrationPool, type PoolStats } from "@/hooks/usePostMigrationPool";
 import { useWeb3 } from "@/lib/web3Provider";
-import { formatUSDC, formatTokenAmount, getPostMigrationPool, type TokenRecord } from "@/lib/contracts";
+import { formatUSDC, formatTokenAmount, getPostMigrationPool, getLaunchToken, type TokenRecord } from "@/lib/contracts";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
 
@@ -28,7 +28,7 @@ function PoolCard({
   data: PoolDisplayData;
   onRefresh: () => void;
 }) {
-  const { signer, isConnected, address: userAddress } = useWeb3();
+  const { signer, isConnected, address: userAddress, readProvider } = useWeb3();
   const pool = usePostMigrationPool(data.record.migrationPool);
 
   const [tab, setTab] = useState<"add" | "remove" | "claim">("add");
@@ -36,8 +36,31 @@ function PoolCard({
   const [usdcAmount, setUsdcAmount] = useState("");
   const [lpRemoveAmount, setLpRemoveAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [userUsdcBalance, setUserUsdcBalance] = useState<bigint>(0n);
+  const [userTokenBalance, setUserTokenBalance] = useState<bigint>(0n);
+  // Track which field was last edited to avoid circular auto-fill
+  const [lastEdited, setLastEdited] = useState<"token" | "usdc" | null>(null);
 
   const { record, stats, lpBalance, claimable } = data;
+
+  // Fetch user balances
+  useEffect(() => {
+    if (!userAddress) return;
+    const fetchBalances = async () => {
+      try {
+        const bal = await readProvider.getBalance(userAddress);
+        setUserUsdcBalance(bal);
+      } catch {}
+      try {
+        const token = getLaunchToken(record.token, readProvider);
+        const bal = await token.balanceOf(userAddress);
+        setUserTokenBalance(bal);
+      } catch {}
+    };
+    fetchBalances();
+    const interval = setInterval(fetchBalances, 10000);
+    return () => clearInterval(interval);
+  }, [userAddress, record.token, readProvider]);
 
   // Resolve logo
   let logo = record.imageURI || "";
@@ -56,6 +79,32 @@ function PoolCard({
   const claimableNum = parseFloat(ethers.formatEther(claimable));
   const totalLPNum = stats ? parseFloat(ethers.formatEther(stats.totalLPSupply)) : 0;
   const lpSharePct = totalLPNum > 0 ? (lpBalanceNum / totalLPNum) * 100 : 0;
+
+  // Pool ratio: USDC per token
+  const poolRatio = tokenReserveNum > 0 ? usdcReserveNum / tokenReserveNum : 0;
+
+  // Auto-fill ratio when user enters one amount
+  const handleTokenAmountChange = (val: string) => {
+    setTokenAmount(val);
+    setLastEdited("token");
+    if (poolRatio > 0 && val && parseFloat(val) > 0) {
+      const usdcNeeded = parseFloat(val) * poolRatio;
+      setUsdcAmount(usdcNeeded < 0.000001 ? usdcNeeded.toFixed(18) : usdcNeeded.toPrecision(8));
+    } else if (!val || parseFloat(val) === 0) {
+      setUsdcAmount("");
+    }
+  };
+
+  const handleUsdcAmountChange = (val: string) => {
+    setUsdcAmount(val);
+    setLastEdited("usdc");
+    if (poolRatio > 0 && val && parseFloat(val) > 0) {
+      const tokenNeeded = parseFloat(val) / poolRatio;
+      setTokenAmount(tokenNeeded < 0.000001 ? tokenNeeded.toFixed(18) : tokenNeeded.toPrecision(8));
+    } else if (!val || parseFloat(val) === 0) {
+      setTokenAmount("");
+    }
+  };
 
   const handleAddLiquidity = async () => {
     if (!isConnected || !tokenAmount || !usdcAmount) return;
@@ -210,29 +259,66 @@ function PoolCard({
       {/* Add Liquidity */}
       {tab === "add" && (
         <div className="space-y-3">
+          {/* User balances */}
+          {isConnected && userAddress && (
+            <div className="flex justify-between items-center text-xs font-body bg-muted/30 rounded-lg px-3 py-2 border border-primary/10">
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">USDC:</span>
+                <span className="text-foreground font-display">{formatUSDC(userUsdcBalance)}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">{record.symbol}:</span>
+                <span className="text-foreground font-display">{formatTokenAmount(userTokenBalance)}</span>
+              </div>
+            </div>
+          )}
           <div>
-            <label className="text-xs font-body text-muted-foreground mb-1 block">{record.symbol} Amount</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-body text-muted-foreground">{record.symbol} Amount</label>
+              {isConnected && userTokenBalance > 0n && (
+                <button
+                  onClick={() => handleTokenAmountChange(ethers.formatEther(userTokenBalance))}
+                  className="text-[10px] font-body text-primary hover:underline"
+                >
+                  MAX
+                </button>
+              )}
+            </div>
             <input
               type="number"
               value={tokenAmount}
-              onChange={(e) => setTokenAmount(e.target.value)}
+              onChange={(e) => handleTokenAmountChange(e.target.value)}
               placeholder="0.0"
               className="w-full bg-muted border border-primary/20 rounded-lg px-3 py-2 text-sm text-foreground font-body focus:outline-none focus:border-primary/50"
             />
           </div>
           <div>
-            <label className="text-xs font-body text-muted-foreground mb-1 block">USDC Amount</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-body text-muted-foreground">USDC Amount</label>
+              {isConnected && userUsdcBalance > ethers.parseEther("0.01") && (
+                <button
+                  onClick={() => {
+                    const maxUsdc = userUsdcBalance - ethers.parseEther("0.01");
+                    handleUsdcAmountChange(ethers.formatEther(maxUsdc));
+                  }}
+                  className="text-[10px] font-body text-primary hover:underline"
+                >
+                  MAX
+                </button>
+              )}
+            </div>
             <input
               type="number"
               value={usdcAmount}
-              onChange={(e) => setUsdcAmount(e.target.value)}
+              onChange={(e) => handleUsdcAmountChange(e.target.value)}
               placeholder="0.0"
               className="w-full bg-muted border border-primary/20 rounded-lg px-3 py-2 text-sm text-foreground font-body focus:outline-none focus:border-primary/50"
             />
           </div>
-          {stats && tokenAmount && usdcAmount && (
+          {stats && (
             <p className="text-[10px] text-muted-foreground font-body">
               Pool ratio: 1 {record.symbol} = {spotPriceNum < 0.01 ? spotPriceNum.toFixed(8) : spotPriceNum.toFixed(6)} USDC
+              {tokenAmount && usdcAmount && " · amounts auto-calculated"}
             </p>
           )}
           <motion.button
@@ -423,7 +509,7 @@ const Liquidity = () => {
                 No graduated tokens yet
               </p>
               <p className="text-muted-foreground font-body mb-6">
-                Tokens need to reach 1,500 USDC in bonding to graduate to the DEX pool.
+                Tokens need to reach 2,500 USDC in bonding to graduate to the DEX pool.
               </p>
               <Link to="/" className="text-primary font-body hover:underline">
                 Browse tokens

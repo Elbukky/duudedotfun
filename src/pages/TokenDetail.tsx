@@ -20,6 +20,7 @@ import {
   formatUSDC,
   formatTokenAmount,
   formatPrice,
+  formatNumber,
   type TokenRecord,
   type ArenaMetrics,
 } from "@/lib/contracts";
@@ -43,6 +44,7 @@ const TokenDetail = () => {
   const [realUSDCRaised, setRealUSDCRaised] = useState<bigint>(0n);
   const [graduated, setGraduated] = useState(false);
   const [arenaMetrics, setArenaMetrics] = useState<ArenaMetrics | null>(null);
+  const [postMigrationVolume, setPostMigrationVolume] = useState(0); // USDC volume from DEX swaps
 
   // Hooks (safe to call with null - they handle it internally)
   const curve = useBondingCurve(curveAddress);
@@ -118,11 +120,39 @@ const TokenDetail = () => {
       const metrics = await curve.getArenaMetrics();
       setArenaMetrics(metrics);
     } catch {}
-    // If graduated, get pool price
+    // If graduated, get pool price and compute post-migration volume from pool events
     if (graduated && poolAddress) {
       try {
         const poolPrice = await pool.getSpotPrice();
         if (poolPrice > 0n) setSpotPrice(poolPrice);
+      } catch {}
+      // Fetch PostMigrationPool Swap events for volume
+      try {
+        const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
+        const SWAP_TOPIC = ethers.id("Swap(address,address,uint256,uint256,uint256,uint256)").toLowerCase();
+        const res = await fetch(`${ARCSCAN_BASE}/addresses/${poolAddress}/logs`);
+        if (res.ok) {
+          const data = await res.json();
+          const logs = data.items || [];
+          let poolVol = 0;
+          for (const log of logs) {
+            if (!log.topics || !log.topics[0]) continue;
+            if (log.topics[0].toLowerCase() !== SWAP_TOPIC) continue;
+            try {
+              const iface = new ethers.Interface([
+                "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
+              ]);
+              const topics = log.topics.filter((t: string | null) => t != null);
+              const parsed = iface.parseLog({ topics, data: log.data });
+              if (parsed) {
+                const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
+                const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
+                poolVol += usdcIn > 0 ? usdcIn : usdcOut;
+              }
+            } catch {}
+          }
+          setPostMigrationVolume(poolVol);
+        }
       } catch {}
     }
   }, [curveAddress, graduated, poolAddress, curve, pool]);
@@ -148,7 +178,7 @@ const TokenDetail = () => {
   const sellVol = arenaMetrics
     ? parseFloat(ethers.formatEther(arenaMetrics.totalSellVolume))
     : 0;
-  const totalVol = buyVol + sellVol;
+  const totalVol = buyVol + sellVol + postMigrationVolume;
 
   // Hype score
   const hypeScore = Math.min(
@@ -424,7 +454,7 @@ const TokenDetail = () => {
                     {formatPrice(spotPrice)}
                   </p>
                   <p className="text-sm font-body text-muted-foreground">
-                    MCap: ${price > 0 ? `${((price * 100_000_000_000) / 1_000_000).toFixed(2)}M` : "0"}
+                    MCap: ${price > 0 ? formatNumber(price * 100_000_000_000) : "0"}
                   </p>
                 </div>
               </div>
@@ -437,12 +467,12 @@ const TokenDetail = () => {
               {
                 icon: <BarChart3 size={14} />,
                 label: "Volume",
-                value: `$${totalVol < 1000 ? totalVol.toFixed(2) : `${(totalVol / 1000).toFixed(1)}K`}`,
+                value: `$${formatNumber(totalVol)}`,
               },
               {
                 icon: <BarChart3 size={14} />,
                 label: "USDC Raised",
-                value: `$${raised.toFixed(2)}`,
+                value: `$${formatNumber(raised)}`,
               },
               {
                 icon: <Users size={14} />,
@@ -506,7 +536,7 @@ const TokenDetail = () => {
                   ? "This token has graduated to the DEX pool."
                   : bondingPct >= 80
                     ? "Almost graduated! This token is about to hit DEX."
-                    : `${raised.toFixed(2)} / 1,500 USDC raised`}
+                    : `${raised.toFixed(2)} / 2,500 USDC raised`}
               </p>
               <a
                 href={tokenLink(address || "")}
@@ -705,7 +735,7 @@ const TokenDetail = () => {
                   </div>
                   <div className="flex justify-between text-xs font-body">
                     <span className="text-muted-foreground">Grad. Target</span>
-                    <span className="text-foreground">1,500 USDC</span>
+                    <span className="text-foreground">2,500 USDC</span>
                   </div>
                   <div className="flex justify-between text-xs font-body">
                     <span className="text-muted-foreground">Fee</span>

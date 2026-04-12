@@ -10,7 +10,7 @@ import "./interfaces/IFeeVault.sol";
 import "./interfaces/IPostMigrationFactory.sol";
 
 /// @title BondingCurve — virtual-reserve constant-product curve (pump.fun style)
-/// @notice VIRTUAL_USDC = 300, graduation at 1 500 USDC net raised.
+/// @notice VIRTUAL_USDC = 300, graduation at 2 500 USDC net raised.
 ///         0.3 % fee on every trade → protocol only (no creator/referral in
 ///         bonding phase). Graduation supports partial-fill so the last buy
 ///         never overshoots. Tracks rich arena-metrics on-chain.
@@ -23,7 +23,7 @@ contract BondingCurve is ReentrancyGuard {
     uint256 public constant VIRTUAL_USDC   = 300e18;
     uint256 public constant VIRTUAL_TOKENS = 100_000_000_000e18;  // 100 B
     uint256 public constant K              = VIRTUAL_USDC * VIRTUAL_TOKENS; // 3 e49
-    uint256 public constant GRADUATION_TARGET = 1_500e18;
+    uint256 public constant GRADUATION_TARGET = 2_500e18;
     uint256 public constant FEE_BPS = 30;   // 0.3 %
     uint256 private constant BPS    = 10_000;
 

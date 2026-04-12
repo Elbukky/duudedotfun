@@ -87,6 +87,17 @@ export function formatPrice(wei: bigint): string {
   return `$${num.toFixed(4)}`;
 }
 
+/** Format a plain number (not wei) with K/M/B abbreviations */
+export function formatNumber(num: number, decimals = 2): string {
+  if (num === 0) return "0";
+  if (num < 0) return `-${formatNumber(-num, decimals)}`;
+  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(decimals)}B`;
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(decimals)}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(decimals)}K`;
+  if (num < 0.01) return num.toFixed(6);
+  return num.toFixed(decimals);
+}
+
 // Token record type matching the contract struct
 export interface TokenRecord {
   token: string;

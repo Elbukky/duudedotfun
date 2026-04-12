@@ -7,7 +7,7 @@ import {
   type ArenaMetrics,
 } from "@/lib/contracts";
 
-const GRADUATION_TARGET = ethers.parseEther("1500");
+const GRADUATION_TARGET = ethers.parseEther("2500");
 const FEE_BPS = 30n;
 const BPS = 10000n;
 

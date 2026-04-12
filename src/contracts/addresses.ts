@@ -1,17 +1,17 @@
 // duude.fun — Deployed contract addresses
 // Network: Arc Testnet (chainId 5042002)
-// Deployed: 2026-04-12 (redeployed — fixed PostMigrationPool initializer bug)
+// Deployed: 2026-04-12 (redeployed — graduation target changed to 2,500 USDC)
 
 export const CHAIN_ID = 5042002;
 export const RPC_URL = "https://rpc.testnet.arc.network";
 
 export const ADDRESSES = {
-  FeeVault: "0xC9C22C0EBEB13c6Ed1e1237E0bc69a96a78f7A9d",
-  LaunchToken_Impl: "0xef0D1005c60b46ce6EdD68C541070F1c9669951D",
-  BondingCurve_Impl: "0xfA656C097ab933560EA35D94eefD42A4204a021C",
-  VestingVault_Impl: "0x03A3198FE2807bf85887755090cB5A32Ba660C75",
-  PostMigrationPool_Impl: "0x6c883C8da876BC85BD7150Cb3A53cd1798036c43",
-  PostMigrationFactory: "0xE81a902283bFe107F2B6064cE52e521dA4991E70",
-  TokenFactory: "0xE87b127907F8DDD64Eb57e6b51BC44FCA6c9884b",
-  ArenaRegistry: "0x8dc9fFfB44270021fB41D1fa189fc7d01E695daD",
+  FeeVault: "0x963AdE0A6C2E91D695Fc04B4a630Cf6640350c1f",
+  LaunchToken_Impl: "0xd738fa47962B635aC55197a0B40B675206f4451f",
+  BondingCurve_Impl: "0x396AA446c8f1AD757B28A3910931bfBc717D0a24",
+  VestingVault_Impl: "0x3dc1D9Bf695f4776E5C150dB6bD54c7DbF263021",
+  PostMigrationPool_Impl: "0x854c2eA6dCdC8b807217d415FD234605771F63c4",
+  PostMigrationFactory: "0x0A16d0f8EBaEee23bFBcFd42aDf418B8A376A266",
+  TokenFactory: "0xaB434Aa131015A12af684D1bCb1584bCCc5B4b96",
+  ArenaRegistry: "0x6aF024A0411FB3d9b988D49F37b5F83175F2B288",
 } as const;

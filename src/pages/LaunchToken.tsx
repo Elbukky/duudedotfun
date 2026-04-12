@@ -377,7 +377,7 @@ const LaunchToken = () => {
                     </div>
                     <div className="flex justify-between text-xs font-body">
                       <span className="text-muted-foreground">Graduation</span>
-                      <span className="text-secondary">1,500 USDC</span>
+                      <span className="text-secondary">2,500 USDC</span>
                     </div>
                     {beneficiaries.length > 0 && totalBps > 0 && (
                       <>

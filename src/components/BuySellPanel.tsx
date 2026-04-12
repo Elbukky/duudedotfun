@@ -192,11 +192,15 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
     <div className="card-cartoon">
       {/* Balance display */}
       {isConnected && userAddress && (
-        <div className="flex justify-between text-xs font-body text-muted-foreground mb-3">
-          <span>USDC: {formatUSDC(userBalance)}</span>
-          <span>
-            {tokenSymbol}: {formatTokenAmount(tokenBalance)}
-          </span>
+        <div className="flex justify-between items-center text-xs font-body bg-muted/30 rounded-lg px-3 py-2 mb-3 border border-primary/10">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">USDC:</span>
+            <span className="text-foreground font-display">{formatUSDC(userBalance)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">{tokenSymbol}:</span>
+            <span className="text-foreground font-display">{formatTokenAmount(tokenBalance)}</span>
+          </div>
         </div>
       )}
 
@@ -236,9 +240,29 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
 
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-muted-foreground font-body mb-1 block">
-            {mode === "buy" ? "Amount (USDC)" : `Amount (${tokenSymbol})`}
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs text-muted-foreground font-body">
+              {mode === "buy" ? "Amount (USDC)" : `Amount (${tokenSymbol})`}
+            </label>
+            {isConnected && (
+              <button
+                onClick={() => {
+                  if (mode === "buy" && userBalance > 0n) {
+                    // Leave small buffer for gas (0.01 USDC)
+                    const maxUsdc = userBalance > ethers.parseEther("0.01")
+                      ? userBalance - ethers.parseEther("0.01")
+                      : userBalance;
+                    setAmount(ethers.formatEther(maxUsdc));
+                  } else if (mode === "sell" && tokenBalance > 0n) {
+                    setAmount(ethers.formatEther(tokenBalance));
+                  }
+                }}
+                className="text-[10px] font-body text-primary hover:text-primary/80 hover:underline transition-colors"
+              >
+                MAX
+              </button>
+            )}
+          </div>
           <input
             type="number"
             placeholder="0.0"
