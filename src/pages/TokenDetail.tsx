@@ -596,6 +596,7 @@ const TokenDetail = () => {
 
               <ActivityFeed
                 curveAddress={curveAddress}
+                poolAddress={poolAddress}
                 tokenSymbol={record.symbol}
               />
               <ChatBox

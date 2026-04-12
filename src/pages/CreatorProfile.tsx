@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock } from "lucide-react";
+import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock, Droplets } from "lucide-react";
 import { ethers } from "ethers";
 import Navbar from "@/components/Navbar";
 import TokenCard from "@/components/TokenCard";
@@ -9,7 +9,7 @@ import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve, type TokenRecord, formatTokenAmount } from "@/lib/contracts";
+import { getBondingCurve, getPostMigrationPool, type TokenRecord, formatTokenAmount, formatUSDC } from "@/lib/contracts";
 import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
@@ -29,6 +29,9 @@ const CreatorProfile = () => {
 
   // Vesting data for tokens that have vesting vaults
   const [vestingData, setVestingData] = useState<{ record: TokenRecord; info: VestingInfo }[]>([]);
+
+  // LP fee earnings for graduated tokens
+  const [lpEarnings, setLpEarnings] = useState<{ record: TokenRecord; lpBalance: bigint; claimable: bigint }[]>([]);
 
   // Mock profile image (stored locally as base64 for now)
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -167,6 +170,33 @@ const CreatorProfile = () => {
     };
     fetchVesting();
   }, [tokens, connectedAddress, getVestingInfo]);
+
+  // Fetch LP fee earnings for graduated tokens (only for connected user viewing own profile)
+  useEffect(() => {
+    if (!connectedAddress || !isOwnProfile || tokens.length === 0) {
+      setLpEarnings([]);
+      return;
+    }
+    const fetchLP = async () => {
+      const results: { record: TokenRecord; lpBalance: bigint; claimable: bigint }[] = [];
+      for (const t of tokens) {
+        if (t.record.graduated && t.record.migrationPool && t.record.migrationPool !== ethers.ZeroAddress) {
+          try {
+            const pool = getPostMigrationPool(t.record.migrationPool, readProvider);
+            const [lpBal, claim] = await Promise.all([
+              pool.getLPBalance(connectedAddress).catch(() => 0n),
+              pool.getLPFeeClaimable(connectedAddress).catch(() => 0n),
+            ]);
+            if (lpBal > 0n || claim > 0n) {
+              results.push({ record: t.record, lpBalance: lpBal, claimable: claim });
+            }
+          } catch {}
+        }
+      }
+      setLpEarnings(results);
+    };
+    fetchLP();
+  }, [tokens, connectedAddress, isOwnProfile, readProvider]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -550,6 +580,65 @@ const CreatorProfile = () => {
                       );
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* LP Fee Earnings */}
+              {lpEarnings.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="font-display text-lg text-foreground mb-4">
+                    <Droplets size={18} className="inline mr-1 text-primary" />
+                    LP FEE <span className="text-primary">EARNINGS</span>
+                  </h2>
+                  <div className="space-y-3">
+                    {lpEarnings.map((lp) => {
+                      const lpBalNum = parseFloat(ethers.formatEther(lp.lpBalance));
+                      const claimNum = parseFloat(ethers.formatEther(lp.claimable));
+                      return (
+                        <motion.div
+                          key={lp.record.migrationPool}
+                          className="card-cartoon"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Link
+                              to={`/token/${lp.record.token}`}
+                              className="font-display text-sm text-foreground hover:text-primary transition-colors"
+                            >
+                              {lp.record.name}{" "}
+                              <span className="text-primary">${lp.record.symbol}</span>
+                            </Link>
+                            <span className="text-[9px] font-body text-accent bg-accent/10 px-1.5 py-0.5 rounded">DEX</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs font-body">
+                            <div>
+                              <span className="text-muted-foreground block">LP Balance</span>
+                              <span className="text-foreground">{lpBalNum < 0.01 ? lpBalNum.toExponential(2) : lpBalNum.toFixed(4)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block">Claimable Fees</span>
+                              <span className="text-secondary">{claimNum < 0.01 ? claimNum.toFixed(6) : claimNum.toFixed(4)} USDC</span>
+                            </div>
+                          </div>
+                          {claimNum > 0 && (
+                            <Link
+                              to="/liquidity"
+                              className="mt-3 block text-center text-xs font-body text-primary hover:underline"
+                            >
+                              Go to Liquidity page to claim
+                            </Link>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  <Link
+                    to="/liquidity"
+                    className="mt-4 block text-center text-xs font-body text-primary hover:underline"
+                  >
+                    Manage all LP positions
+                  </Link>
                 </div>
               )}
             </>

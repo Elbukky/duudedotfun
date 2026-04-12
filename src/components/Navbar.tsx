@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Swords, Rocket, User, Menu, X, BookOpen, LogOut } from "lucide-react";
+import { Flame, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets } from "lucide-react";
 import { useState } from "react";
 import { useWeb3 } from "@/lib/web3Provider";
 import { shortAddress } from "@/lib/arcscan";
@@ -14,6 +14,7 @@ const Navbar = () => {
     { path: "/", label: "Home", icon: Flame },
     { path: "/arena", label: "Arena", icon: Swords },
     { path: "/launch", label: "Launch", icon: Rocket },
+    { path: "/liquidity", label: "Liquidity", icon: Droplets },
     { path: "/docs", label: "Docs", icon: BookOpen },
     ...(isConnected && address
       ? [{ path: `/creator/${address}`, label: "Profile", icon: User }]

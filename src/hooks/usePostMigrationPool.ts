@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "@/lib/web3Provider";
-import { getPostMigrationPool, getPostMigrationPoolWrite } from "@/lib/contracts";
+import { getPostMigrationPool, getPostMigrationPoolWrite, getLaunchToken, getLaunchTokenWrite } from "@/lib/contracts";
 
 export interface PoolStats {
   tokenReserve: bigint;
@@ -16,6 +16,7 @@ export function usePostMigrationPool(poolAddress: string | null) {
   const [swapping, setSwapping] = useState(false);
   const [addingLiquidity, setAddingLiquidity] = useState(false);
   const [removingLiquidity, setRemovingLiquidity] = useState(false);
+  const [claimingFees, setClaimingFees] = useState(false);
 
   // ABI: getPoolStats() returns (tokenReserve_, usdcReserve_, totalLPSupply_, activeLPSupply_, spotPrice_)
   const getPoolStats = useCallback(async (): Promise<PoolStats | null> => {
@@ -41,6 +42,28 @@ export function usePostMigrationPool(poolAddress: string | null) {
     try {
       const pool = getPostMigrationPool(poolAddress, readProvider);
       return await pool.spotPrice();
+    } catch {
+      return 0n;
+    }
+  }, [poolAddress, readProvider]);
+
+  // Get LP token balance for a user
+  const getLPBalance = useCallback(async (user: string): Promise<bigint> => {
+    if (!poolAddress || poolAddress === ethers.ZeroAddress) return 0n;
+    try {
+      const pool = getPostMigrationPool(poolAddress, readProvider);
+      return await pool.getLPBalance(user);
+    } catch {
+      return 0n;
+    }
+  }, [poolAddress, readProvider]);
+
+  // Get claimable LP fees for a user
+  const getLPFeeClaimable = useCallback(async (user: string): Promise<bigint> => {
+    if (!poolAddress || poolAddress === ethers.ZeroAddress) return 0n;
+    try {
+      const pool = getPostMigrationPool(poolAddress, readProvider);
+      return await pool.getLPFeeClaimable(user);
     } catch {
       return 0n;
     }
@@ -73,13 +96,28 @@ export function usePostMigrationPool(poolAddress: string | null) {
         const to = await signer.getAddress();
         const tokenAmt = ethers.parseEther(tokenAmount);
         const value = ethers.parseEther(usdcAmount);
+
+        // Need to approve token spend first
+        // Read the token address from the pool
+        const poolRead = getPostMigrationPool(poolAddress, readProvider);
+        const tokenAddr = await poolRead.token();
+        const token = getLaunchTokenWrite(tokenAddr, signer);
+
+        // Check allowance and approve if needed
+        const userAddr = await signer.getAddress();
+        const allowance = await getLaunchToken(tokenAddr, readProvider).allowance(userAddr, poolAddress);
+        if (allowance < tokenAmt) {
+          const approveTx = await token.approve(poolAddress, tokenAmt);
+          await approveTx.wait();
+        }
+
         const tx = await pool.addLiquidity(tokenAmt, minLPOut, to, { value });
         return await tx.wait();
       } finally {
         setAddingLiquidity(false);
       }
     },
-    [signer, isConnected, poolAddress]
+    [signer, isConnected, poolAddress, readProvider]
   );
 
   const removeLiquidity = useCallback(
@@ -99,14 +137,34 @@ export function usePostMigrationPool(poolAddress: string | null) {
     [signer, isConnected, poolAddress]
   );
 
+  // Claim accumulated LP fees
+  const claimLPFees = useCallback(
+    async () => {
+      if (!signer || !isConnected || !poolAddress) throw new Error("Not connected");
+      setClaimingFees(true);
+      try {
+        const pool = getPostMigrationPoolWrite(poolAddress, signer);
+        const tx = await pool.claimLPFees();
+        return await tx.wait();
+      } finally {
+        setClaimingFees(false);
+      }
+    },
+    [signer, isConnected, poolAddress]
+  );
+
   return {
     getPoolStats,
     getSpotPrice,
+    getLPBalance,
+    getLPFeeClaimable,
     swap,
     addLiquidity,
     removeLiquidity,
+    claimLPFees,
     swapping,
     addingLiquidity,
     removingLiquidity,
+    claimingFees,
   };
 }

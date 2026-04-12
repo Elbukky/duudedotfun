@@ -81,16 +81,19 @@ const Arena = () => {
   }, [battleData]);
 
   // Build leaderboard display tokens
-  // First, find max raw score for normalization
-  const maxRawScore = (battleData?.leaderboard || []).reduce(
-    (max, entry) => (entry.score > max ? entry.score : max),
-    0n
-  );
+  // Absolute normalization baseline for arena score.
+  // On-chain formula: (retainedBuyers*300) + (uniqueBuyers*100) + (buyVolumeUSDC/1e18) + (buyPressureBps*10) + (holderCount*50) + (percentCompleteBps*5)
+  // - buyPressureBps max 10000 → 100,000
+  // - percentCompleteBps max 10000 → 50,000
+  // - 50 retained buyers → 15,000; 100 unique → 10,000; 500 USDC → 500; 200 holders → 10,000
+  // A strong graduated token scores ~140K. Use 150K as the "100" ceiling.
+  const SCORE_NORMALIZATION_MAX = 150_000n;
 
-  // Normalize raw score to 0-100
+  // Normalize raw score to 0-100 using absolute baseline (not relative to peers)
   const normalizeScore = (raw: bigint): number => {
-    if (maxRawScore === 0n) return 0;
-    return Math.min(100, Math.round((Number(raw) / Number(maxRawScore)) * 100));
+    if (raw === 0n) return 0;
+    const normalized = Math.round((Number(raw) * 100) / Number(SCORE_NORMALIZATION_MAX));
+    return Math.min(100, Math.max(1, normalized)); // at least 1 if non-zero
   };
 
   const leaderboardTokens: (Token & { arenaScore: string })[] = (battleData?.leaderboard || []).map((entry, i) => {
