@@ -1,28 +1,34 @@
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil } from "lucide-react";
+import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock } from "lucide-react";
 import { ethers } from "ethers";
 import Navbar from "@/components/Navbar";
 import TokenCard from "@/components/TokenCard";
 import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
+import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve, type TokenRecord } from "@/lib/contracts";
+import { getBondingCurve, type TokenRecord, formatTokenAmount } from "@/lib/contracts";
 import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
+import { toast } from "sonner";
 
 const CreatorProfile = () => {
   const { address } = useParams<{ address: string }>();
   const { getCreatorStats, getCreatorTokens, getTokenRecord } = useTokenFactory();
   const { getCreatorRecord } = useArenaRegistry();
   const { readProvider, address: connectedAddress } = useWeb3();
+  const { getVestingInfo, claim, claiming } = useVestingVault();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ tokensCreated: 0, tokensGraduated: 0, arenaBattlesWon: 0 });
   const [arenaRecord, setArenaRecord] = useState({ totalWins: 0, battlesParticipated: 0 });
   const [tokens, setTokens] = useState<EnrichedToken[]>([]);
   const [copied, setCopied] = useState(false);
+
+  // Vesting data for tokens that have vesting vaults
+  const [vestingData, setVestingData] = useState<{ record: TokenRecord; info: VestingInfo }[]>([]);
 
   // Mock profile image (stored locally as base64 for now)
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -141,6 +147,27 @@ const CreatorProfile = () => {
     }
   }, [address]);
 
+  // Fetch vesting data for this creator's tokens (check if connected wallet has vesting)
+  useEffect(() => {
+    if (!connectedAddress || tokens.length === 0) {
+      setVestingData([]);
+      return;
+    }
+    const fetchVesting = async () => {
+      const results: { record: TokenRecord; info: VestingInfo }[] = [];
+      for (const t of tokens) {
+        if (t.record.vestingVault && t.record.vestingVault !== ethers.ZeroAddress) {
+          const info = await getVestingInfo(t.record.vestingVault, connectedAddress);
+          if (info) {
+            results.push({ record: t.record, info });
+          }
+        }
+      }
+      setVestingData(results);
+    };
+    fetchVesting();
+  }, [tokens, connectedAddress, getVestingInfo]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !address) return;
@@ -164,6 +191,27 @@ const CreatorProfile = () => {
   const handleStartEditName = () => {
     setNameInput(creatorNameValue);
     setEditingName(true);
+  };
+
+  const handleClaim = async (vaultAddress: string, tokenSymbol: string) => {
+    try {
+      toast.info(`Claiming vested ${tokenSymbol}...`);
+      await claim(vaultAddress);
+      toast.success(`Claimed ${tokenSymbol} tokens!`);
+      // Refresh vesting data
+      if (connectedAddress) {
+        const info = await getVestingInfo(vaultAddress, connectedAddress);
+        if (info) {
+          setVestingData((prev) =>
+            prev.map((v) =>
+              v.record.vestingVault === vaultAddress ? { ...v, info } : v
+            )
+          );
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.reason || err.message || "Claim failed");
+    }
   };
 
   const copyAddress = () => {
@@ -385,7 +433,7 @@ const CreatorProfile = () => {
               {/* Best Performing */}
               {bestToken && (
                 <div className="mb-8">
-                  <h2 className="font-display text-lg text-foreground mb-4">🏆 BEST <span className="text-accent">PERFORMER</span></h2>
+                  <h2 className="font-display text-lg text-foreground mb-4">BEST <span className="text-accent">PERFORMER</span></h2>
                   <div className="max-w-sm">
                     <TokenCard token={bestToken} />
                   </div>
@@ -393,7 +441,7 @@ const CreatorProfile = () => {
               )}
 
               {/* All tokens */}
-              <h2 className="font-display text-lg text-foreground mb-4">🚀 ALL <span className="text-primary">LAUNCHES</span></h2>
+              <h2 className="font-display text-lg text-foreground mb-4">ALL <span className="text-primary">LAUNCHES</span></h2>
               {displayTokens.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {displayTokens.map((t, i) => (
@@ -402,6 +450,107 @@ const CreatorProfile = () => {
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground font-body py-8">No tokens launched yet.</p>
+              )}
+
+              {/* Vesting & Claims */}
+              {vestingData.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="font-display text-lg text-foreground mb-4">
+                    VESTING & <span className="text-accent">CLAIMS</span>
+                  </h2>
+                  <div className="space-y-3">
+                    {vestingData.map((v) => {
+                      const { record, info } = v;
+                      return (
+                        <motion.div
+                          key={record.vestingVault}
+                          className="card-cartoon"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <Link
+                                to={`/token/${record.token}`}
+                                className="font-display text-sm text-foreground hover:text-primary transition-colors"
+                              >
+                                {record.name}{" "}
+                                <span className="text-primary">${record.symbol}</span>
+                              </Link>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {info.isCliffPassed ? (
+                                <Unlock size={14} className="text-secondary" />
+                              ) : (
+                                <Lock size={14} className="text-muted-foreground" />
+                              )}
+                              <span className="text-xs font-body text-muted-foreground">
+                                {info.isCliffPassed ? "Cliff passed" : `Cliff: ${info.cliffDaysLeft}d left`}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Vesting progress bar */}
+                          <div className="mb-2">
+                            <div className="flex justify-between text-xs font-body mb-1">
+                              <span className="text-muted-foreground">Vested</span>
+                              <span className="text-foreground">{info.percentVested.toFixed(1)}%</span>
+                            </div>
+                            <div className="progress-arcade h-3">
+                              <motion.div
+                                className="progress-arcade-fill"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${info.percentVested}%` }}
+                                transition={{ duration: 1 }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Stats row */}
+                          <div className="grid grid-cols-3 gap-2 text-xs font-body mb-3">
+                            <div>
+                              <span className="text-muted-foreground block">Total</span>
+                              <span className="text-foreground">{formatTokenAmount(info.schedule.totalAllocation)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block">Claimed</span>
+                              <span className="text-foreground">{formatTokenAmount(info.schedule.claimed)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block">Claimable</span>
+                              <span className="text-secondary">{formatTokenAmount(info.schedule.claimableNow)}</span>
+                            </div>
+                          </div>
+
+                          {/* Time remaining */}
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground font-body mb-3">
+                            <Clock size={12} />
+                            <span>{info.vestingDaysLeft > 0 ? `${info.vestingDaysLeft} days until fully vested` : "Fully vested"}</span>
+                          </div>
+
+                          {/* Claim button — only on own profile and when there's something to claim */}
+                          {isOwnProfile && info.schedule.claimableNow > 0n && (
+                            <motion.button
+                              onClick={() => handleClaim(record.vestingVault, record.symbol)}
+                              disabled={claiming}
+                              className="w-full btn-arcade py-2.5 text-xs bg-secondary text-secondary-foreground border-secondary disabled:opacity-50"
+                              whileHover={{ scale: claiming ? 1 : 1.02 }}
+                              whileTap={{ scale: claiming ? 1 : 0.98 }}
+                            >
+                              {claiming ? "Claiming..." : `Claim ${formatTokenAmount(info.schedule.claimableNow)} ${record.symbol}`}
+                            </motion.button>
+                          )}
+
+                          {isOwnProfile && info.schedule.claimableNow === 0n && !info.isCliffPassed && (
+                            <p className="text-xs text-muted-foreground font-body text-center py-1">
+                              Tokens locked until cliff ends ({info.cliffDaysLeft}d)
+                            </p>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </>
           )}

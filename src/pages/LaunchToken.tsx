@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useRef } from "react";
-import { Upload, Sparkles, Twitter, Globe, MessageCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, Sparkles, Twitter, Globe, MessageCircle, AlertCircle, Loader2, Plus, Trash2, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { useWeb3 } from "@/lib/web3Provider";
@@ -8,6 +8,7 @@ import { useTokenFactory } from "@/hooks/useTokenFactory";
 import { ethers } from "ethers";
 import { toast } from "sonner";
 import { categories } from "@/lib/mockData";
+import { compressImage, uploadImageToR2 } from "@/lib/imageUtils";
 
 const LaunchToken = () => {
   const navigate = useNavigate();
@@ -26,7 +27,33 @@ const LaunchToken = () => {
 
   // Mock image upload (stored locally until R2 integration)
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Beneficiary / Vesting state
+  const [beneficiaries, setBeneficiaries] = useState<{ address: string; bps: string }[]>([]);
+  const MAX_TOTAL_BPS = 500; // 5% max
+
+  const totalBps = beneficiaries.reduce((sum, b) => sum + (parseInt(b.bps) || 0), 0);
+
+  const addBeneficiary = () => {
+    if (beneficiaries.length >= 5) {
+      toast.error("Maximum 5 beneficiaries");
+      return;
+    }
+    setBeneficiaries([...beneficiaries, { address: "", bps: "" }]);
+  };
+
+  const removeBeneficiary = (index: number) => {
+    setBeneficiaries(beneficiaries.filter((_, i) => i !== index));
+  };
+
+  const updateBeneficiary = (index: number, field: "address" | "bps", value: string) => {
+    const updated = [...beneficiaries];
+    updated[index] = { ...updated[index], [field]: value };
+    setBeneficiaries(updated);
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,6 +62,7 @@ const LaunchToken = () => {
       toast.error("Image must be under 5MB");
       return;
     }
+    setImageFile(file);
     const reader = new FileReader();
     reader.onload = () => setImagePreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -55,11 +83,50 @@ const LaunchToken = () => {
       return;
     }
 
+    // Validate beneficiaries
+    const validBeneficiaries: string[] = [];
+    const validBps: number[] = [];
+    for (const b of beneficiaries) {
+      if (!b.address.trim() && !b.bps) continue; // skip empty rows
+      if (!ethers.isAddress(b.address.trim())) {
+        toast.error(`Invalid beneficiary address: ${b.address || "(empty)"}`);
+        return;
+      }
+      const bps = parseInt(b.bps);
+      if (isNaN(bps) || bps <= 0) {
+        toast.error(`Invalid BPS for ${b.address.slice(0, 10)}...`);
+        return;
+      }
+      validBeneficiaries.push(b.address.trim());
+      validBps.push(bps);
+    }
+    const totalBpsCheck = validBps.reduce((s, v) => s + v, 0);
+    if (totalBpsCheck > MAX_TOTAL_BPS) {
+      toast.error(`Total allocation exceeds 5% (${totalBpsCheck} / ${MAX_TOTAL_BPS} BPS)`);
+      return;
+    }
+
     try {
-      // Don't pass the full base64 image to the contract — it's too large.
-      // Store image locally in localStorage, pass empty string on-chain.
-      // Will be replaced with R2 upload later.
-      const imageURI = "";
+      // Upload image to R2 if available, fall back to localStorage
+      let imageURI = "";
+      if (imageFile) {
+        setUploading(true);
+        try {
+          const compressed = await compressImage(imageFile);
+          const fileName = `${ticker.trim().toLowerCase()}-${Date.now()}`;
+          const url = await uploadImageToR2(compressed, fileName);
+          if (url) {
+            imageURI = url;
+          } else {
+            toast.info("Image upload failed — saving locally as fallback");
+          }
+        } catch (err) {
+          console.error("Image compression/upload error:", err);
+          toast.info("Image upload failed — saving locally as fallback");
+        } finally {
+          setUploading(false);
+        }
+      }
 
       const result = await createToken(
         {
@@ -74,14 +141,14 @@ const LaunchToken = () => {
             discord: discord.trim(),
             extra: category,
           },
-          beneficiaries: [],
-          bpsAllocations: [],
+          beneficiaries: validBeneficiaries,
+          bpsAllocations: validBps,
           referrer: ethers.ZeroAddress,
         },
         initialBuyAmount
       );
 
-      // Save the image to localStorage keyed by the token address
+      // Save the image to localStorage as fallback / cache
       if (result.tokenAddress && imagePreview) {
         localStorage.setItem(`token-image-${result.tokenAddress.toLowerCase()}`, imagePreview);
       }
@@ -198,8 +265,79 @@ const LaunchToken = () => {
                 </div>
               </div>
 
-              <motion.button onClick={handleLaunch} disabled={creating} className="w-full btn-arcade bg-primary text-primary-foreground border-primary py-4 text-sm flex items-center justify-center gap-2 disabled:opacity-50" whileHover={{ scale: creating ? 1 : 1.02 }} whileTap={{ scale: creating ? 1 : 0.98 }}>
-                {creating ? (
+              {/* Beneficiary / Vesting */}
+              <div className="card-cartoon space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-sm text-foreground">TEAM VESTING</h3>
+                  <span className="badge-sticker text-[10px] bg-muted text-muted-foreground border-muted">OPTIONAL</span>
+                </div>
+
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <Info size={14} className="text-primary shrink-0 mt-0.5" />
+                  <div className="text-xs text-muted-foreground font-body space-y-1">
+                    <p>Allocate up to <strong className="text-foreground">5% (500 BPS)</strong> of total supply to team/advisors.</p>
+                    <p>Tokens vest linearly over <strong className="text-foreground">1 year</strong> with a <strong className="text-foreground">30-day cliff</strong>. No tokens are claimable until after the cliff.</p>
+                  </div>
+                </div>
+
+                {beneficiaries.map((b, i) => (
+                  <motion.div
+                    key={i}
+                    className="flex items-center gap-2"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                  >
+                    <input
+                      value={b.address}
+                      onChange={(e) => updateBeneficiary(i, "address", e.target.value)}
+                      placeholder="0x... wallet address"
+                      className="flex-1 bg-muted border-2 border-primary/20 rounded-xl px-3 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors font-mono"
+                    />
+                    <input
+                      type="number"
+                      value={b.bps}
+                      onChange={(e) => updateBeneficiary(i, "bps", e.target.value)}
+                      placeholder="BPS"
+                      min="1"
+                      max="500"
+                      className="w-20 bg-muted border-2 border-primary/20 rounded-xl px-3 py-2.5 text-foreground font-body text-sm focus:outline-none focus:border-primary/50 transition-colors text-center"
+                    />
+                    <motion.button
+                      onClick={() => removeBeneficiary(i)}
+                      className="p-2 text-destructive/60 hover:text-destructive transition-colors"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <Trash2 size={16} />
+                    </motion.button>
+                  </motion.div>
+                ))}
+
+                <div className="flex items-center justify-between">
+                  <motion.button
+                    onClick={addBeneficiary}
+                    className="flex items-center gap-1.5 text-xs font-body text-primary hover:text-primary/80 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Plus size={14} /> Add beneficiary
+                  </motion.button>
+                  {beneficiaries.length > 0 && (
+                    <span className={`text-xs font-body ${totalBps > MAX_TOTAL_BPS ? "text-destructive" : "text-muted-foreground"}`}>
+                      {totalBps} / {MAX_TOTAL_BPS} BPS ({(totalBps / 100).toFixed(1)}%)
+                    </span>
+                  )}
+                </div>
+
+                {totalBps > MAX_TOTAL_BPS && (
+                  <p className="text-xs text-destructive font-body">Total allocation exceeds maximum of 5%</p>
+                )}
+              </div>
+
+              <motion.button onClick={handleLaunch} disabled={creating || uploading || totalBps > MAX_TOTAL_BPS} className="w-full btn-arcade bg-primary text-primary-foreground border-primary py-4 text-sm flex items-center justify-center gap-2 disabled:opacity-50" whileHover={{ scale: (creating || uploading) ? 1 : 1.02 }} whileTap={{ scale: (creating || uploading) ? 1 : 0.98 }}>
+                {uploading ? (
+                  <><Loader2 size={18} className="animate-spin" /> UPLOADING IMAGE...</>
+                ) : creating ? (
                   <><Loader2 size={18} className="animate-spin" /> LAUNCHING...</>
                 ) : !isConnected ? (
                   "CONNECT WALLET TO LAUNCH"
@@ -241,6 +379,23 @@ const LaunchToken = () => {
                       <span className="text-muted-foreground">Graduation</span>
                       <span className="text-secondary">1,500 USDC</span>
                     </div>
+                    {beneficiaries.length > 0 && totalBps > 0 && (
+                      <>
+                        <div className="border-t border-primary/10 my-1" />
+                        <div className="flex justify-between text-xs font-body">
+                          <span className="text-muted-foreground">Team Vesting</span>
+                          <span className="text-primary">{(totalBps / 100).toFixed(1)}% ({beneficiaries.length} addr)</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-body">
+                          <span className="text-muted-foreground">Cliff</span>
+                          <span className="text-foreground">30 days</span>
+                        </div>
+                        <div className="flex justify-between text-xs font-body">
+                          <span className="text-muted-foreground">Full Vest</span>
+                          <span className="text-foreground">1 year</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

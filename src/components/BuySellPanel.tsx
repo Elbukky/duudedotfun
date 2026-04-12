@@ -302,6 +302,28 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
                         {(Number(quote.priceImpactBps) / 100).toFixed(2)}%
                       </span>
                     </div>
+                    {quote.willGraduate && (
+                      <div className="mt-2 p-2.5 rounded-lg bg-secondary/10 border border-secondary/30 space-y-1">
+                        <p className="text-xs font-display text-secondary">
+                          This buy will graduate the token!
+                        </p>
+                        {quote.cappedUsdcIn !== undefined && (
+                          <div className="flex justify-between text-xs font-body">
+                            <span className="text-muted-foreground">USDC spent</span>
+                            <span className="text-foreground">{formatUSDC(quote.cappedUsdcIn)} USDC</span>
+                          </div>
+                        )}
+                        {quote.refundAmount !== undefined && quote.refundAmount > 0n && (
+                          <div className="flex justify-between text-xs font-body">
+                            <span className="text-muted-foreground">Refunded to you</span>
+                            <span className="text-secondary">{formatUSDC(quote.refundAmount)} USDC</span>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground font-body">
+                          Token moves to DEX pool after graduation. Excess USDC is auto-refunded.
+                        </p>
+                      </div>
+                    )}
                   </>
                 )}
                 {graduated && (
@@ -344,7 +366,11 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            {isBusy ? "Confirming..." : `${mode === "buy" ? "BUY" : "SELL"} ${tokenSymbol}`}
+            {isBusy
+              ? "Confirming..."
+              : !graduated && mode === "buy" && quote?.willGraduate
+                ? `BUY & GRADUATE ${tokenSymbol}`
+                : `${mode === "buy" ? "BUY" : "SELL"} ${tokenSymbol}`}
           </motion.button>
         )}
       </div>

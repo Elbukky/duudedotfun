@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { ethers } from "ethers";
-import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve } from "@/lib/contracts";
 
 interface TradePoint {
   price: number;
   type: "buy" | "sell";
   blockNumber: number;
+  timestamp?: number;
 }
 
 interface Candle {
@@ -24,81 +23,162 @@ interface CandlestickChartProps {
   graduated?: boolean;
 }
 
-const BUY_EVENT = "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)";
-const SELL_EVENT = "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)";
+// Arcscan (Blockscout v2) API for fetching logs — more reliable than RPC eth_getLogs
+const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
 
-const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: CandlestickChartProps) => {
-  const { readProvider } = useWeb3();
+// Event signatures for topic0 matching
+const BUY_TOPIC = ethers.id("Buy(address,address,uint256,uint256,uint256)");
+const SELL_TOPIC = ethers.id("Sell(address,uint256,uint256,uint256)");
+const SWAP_TOPIC = ethers.id("Swap(address,address,uint256,uint256,uint256,uint256)");
+
+// ABIs for parsing
+const BONDING_EVENTS = [
+  "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)",
+  "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)",
+];
+const POOL_EVENTS = [
+  "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
+];
+
+async function fetchLogsFromArcscan(
+  contractAddress: string,
+  topic0?: string
+): Promise<any[]> {
+  try {
+    let url = `${ARCSCAN_BASE}/addresses/${contractAddress}/logs`;
+    if (topic0) url += `?topic0=${topic0}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.items || [];
+  } catch {
+    return [];
+  }
+}
+
+const CandlestickChart = ({
+  curveAddress,
+  poolAddress,
+  currentPrice,
+  graduated = false,
+}: CandlestickChartProps) => {
   const [trades, setTrades] = useState<TradePoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState("ALL");
 
-  // Fetch trade events from the bonding curve contract
+  // Fetch trade events from Arcscan API
   useEffect(() => {
-    if (!curveAddress) {
-      setLoading(false);
-      return;
-    }
-
     const fetchTrades = async () => {
       setLoading(true);
+      const points: TradePoint[] = [];
+
       try {
-        const iface = new ethers.Interface([BUY_EVENT, SELL_EVENT]);
-        const curve = getBondingCurve(curveAddress, readProvider);
+        const bondingIface = new ethers.Interface(BONDING_EVENTS);
+        const poolIface = new ethers.Interface(POOL_EVENTS);
 
-        // Query Buy and Sell events - use a wide block range
-        const currentBlock = await readProvider.getBlockNumber();
-        const fromBlock = Math.max(0, currentBlock - 50000);
+        // Fetch bonding curve Buy+Sell events (always, even after graduation for history)
+        if (curveAddress) {
+          const [buyLogs, sellLogs] = await Promise.all([
+            fetchLogsFromArcscan(curveAddress, BUY_TOPIC),
+            fetchLogsFromArcscan(curveAddress, SELL_TOPIC),
+          ]);
 
-        const [buyLogs, sellLogs] = await Promise.all([
-          curve.queryFilter(curve.filters.Buy(), fromBlock, currentBlock).catch((e) => {
-            console.warn("Failed to fetch Buy events:", e);
-            return [];
-          }),
-          curve.queryFilter(curve.filters.Sell(), fromBlock, currentBlock).catch((e) => {
-            console.warn("Failed to fetch Sell events:", e);
-            return [];
-          }),
-        ]);
-
-        const points: TradePoint[] = [];
-
-        for (const log of buyLogs) {
-          try {
-            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-            if (parsed) {
-              const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
-              const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
-              if (tokensOut > 0) {
-                points.push({
-                  price: usdcIn / tokensOut,
-                  type: "buy",
-                  blockNumber: log.blockNumber,
-                });
+          for (const log of buyLogs) {
+            try {
+              const parsed = bondingIface.parseLog({
+                topics: log.topics,
+                data: log.data,
+              });
+              if (parsed) {
+                const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
+                const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
+                if (tokensOut > 0) {
+                  points.push({
+                    price: usdcIn / tokensOut,
+                    type: "buy",
+                    blockNumber: log.block_number || 0,
+                    timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
+                  });
+                }
               }
-            }
-          } catch {}
+            } catch {}
+          }
+
+          for (const log of sellLogs) {
+            try {
+              const parsed = bondingIface.parseLog({
+                topics: log.topics,
+                data: log.data,
+              });
+              if (parsed) {
+                const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
+                const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
+                if (tokensIn > 0) {
+                  points.push({
+                    price: usdcOut / tokensIn,
+                    type: "sell",
+                    blockNumber: log.block_number || 0,
+                    timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
+                  });
+                }
+              }
+            } catch {}
+          }
         }
 
-        for (const log of sellLogs) {
-          try {
-            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-            if (parsed) {
-              const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
-              const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
-              if (tokensIn > 0) {
-                points.push({
-                  price: usdcOut / tokensIn,
-                  type: "sell",
-                  blockNumber: log.blockNumber,
-                });
+        // Fetch PostMigrationPool Swap events (after graduation)
+        if (poolAddress && poolAddress !== ethers.ZeroAddress) {
+          const swapLogs = await fetchLogsFromArcscan(poolAddress, SWAP_TOPIC);
+
+          for (const log of swapLogs) {
+            try {
+              const parsed = poolIface.parseLog({
+                topics: log.topics,
+                data: log.data,
+              });
+              if (parsed) {
+                const tokenIn = parsed.args.tokenIn;
+                const usdcIn = parsed.args.usdcIn;
+                const tokenOut = parsed.args.tokenOut;
+                const usdcOut = parsed.args.usdcOut;
+
+                // Buy tokens: usdcIn > 0, tokenOut > 0
+                if (usdcIn > 0n && tokenOut > 0n) {
+                  const usdcF = parseFloat(ethers.formatEther(usdcIn));
+                  const tokF = parseFloat(ethers.formatEther(tokenOut));
+                  if (tokF > 0) {
+                    points.push({
+                      price: usdcF / tokF,
+                      type: "buy",
+                      blockNumber: log.block_number || 0,
+                      timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
+                    });
+                  }
+                }
+                // Sell tokens: tokenIn > 0, usdcOut > 0
+                else if (tokenIn > 0n && usdcOut > 0n) {
+                  const tokF = parseFloat(ethers.formatEther(tokenIn));
+                  const usdcF = parseFloat(ethers.formatEther(usdcOut));
+                  if (tokF > 0) {
+                    points.push({
+                      price: usdcF / tokF,
+                      type: "sell",
+                      blockNumber: log.block_number || 0,
+                      timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
+                    });
+                  }
+                }
               }
-            }
-          } catch {}
+            } catch {}
+          }
         }
 
-        // Sort by block number
-        points.sort((a, b) => a.blockNumber - b.blockNumber);
+        // Sort by block number (or timestamp if available)
+        points.sort((a, b) => {
+          if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
+          return a.blockNumber - b.blockNumber;
+        });
+
         setTrades(points);
       } catch (err) {
         console.error("Failed to fetch trade data:", err);
@@ -108,13 +188,14 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
     };
 
     fetchTrades();
-  }, [curveAddress, readProvider]);
+    // Re-fetch every 30 seconds
+    const interval = setInterval(fetchTrades, 30000);
+    return () => clearInterval(interval);
+  }, [curveAddress, poolAddress]);
 
   // Build candles from trade points
   const candles = useMemo(() => {
     if (trades.length < 2) return [];
-
-    // Group trades into N candles (max 24)
     const numCandles = Math.min(24, Math.max(4, Math.floor(trades.length / 2)));
     const candleSize = Math.ceil(trades.length / numCandles);
     const result: Candle[] = [];
@@ -130,11 +211,9 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
         low: Math.min(...prices),
       });
     }
-
     return result;
   }, [trades]);
 
-  // Chart dimensions
   const chartH = 160;
 
   if (loading) {
@@ -150,7 +229,7 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
     );
   }
 
-  // No trades or just 1 trade - show current price with a visual
+  // No trades — show current price with a visual
   if (candles.length === 0) {
     return (
       <div className="card-cartoon">
@@ -163,13 +242,11 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
           )}
         </div>
         <div className="relative w-full" style={{ height: chartH }}>
-          {/* Visual price line at center */}
           <svg
             viewBox={`0 0 200 ${chartH}`}
             preserveAspectRatio="none"
             className="w-full h-full"
           >
-            {/* Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
               <line
                 key={pct}
@@ -182,7 +259,6 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
                 strokeDasharray="4 4"
               />
             ))}
-            {/* Flat price line */}
             <line
               x1="10"
               y1={chartH / 2}
@@ -193,22 +269,15 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
               strokeDasharray="6 3"
               strokeOpacity={0.6}
             />
-            {/* Current price dot */}
-            <circle
-              cx="190"
-              cy={chartH / 2}
-              r={4}
-              fill="hsl(var(--secondary))"
-            />
+            <circle cx="190" cy={chartH / 2} r={4} fill="hsl(var(--secondary))" />
           </svg>
-          {/* Centered price overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <p className="font-display text-2xl text-foreground">
               ${currentPrice < 0.000001 ? currentPrice.toExponential(2) : currentPrice < 0.01 ? currentPrice.toFixed(8) : currentPrice.toFixed(6)}
             </p>
             <p className="text-xs text-muted-foreground font-body mt-2">
               {trades.length === 0
-                ? "No trades yet — be the first!"
+                ? "No trades yet \u2014 be the first!"
                 : `${trades.length} trade${trades.length > 1 ? "s" : ""} recorded`}
             </p>
           </div>
@@ -225,9 +294,10 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
 
   const yPos = (price: number) => chartH - ((price - minPrice) / range) * (chartH - 16) - 8;
 
-  const priceChange = candles.length > 0
-    ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
-    : 0;
+  const priceChange =
+    candles.length > 0
+      ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
+      : 0;
 
   return (
     <motion.div
@@ -276,7 +346,6 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
           preserveAspectRatio="none"
           className="w-full h-full"
         >
-          {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
             <line
               key={pct}
@@ -328,7 +397,6 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
         </svg>
       </div>
 
-      {/* Price labels */}
       <div className="flex justify-between mt-2">
         <span className="text-xs text-muted-foreground font-body">
           {trades.length} trades
