@@ -26,31 +26,28 @@ function getAwardBadges(leaderboard: ArenaParticipantScore[], tokenMap: Map<stri
   if (leaderboard.length === 0) return [];
   const badges: { label: string; token: string }[] = [];
 
-  // Most chaotic: highest sell count (most volatile trading)
   const mostChaotic = [...leaderboard].sort((a, b) =>
     Number(b.metrics.sellCount + b.metrics.buyCount) - Number(a.metrics.sellCount + a.metrics.buyCount)
   )[0];
   if (mostChaotic) {
     const name = tokenMap.get(mostChaotic.token.toLowerCase())?.name || shortAddress(mostChaotic.token);
-    badges.push({ label: "🔥 Most Chaotic", token: name });
+    badges.push({ label: "Most Chaotic", token: name });
   }
 
-  // Fastest growing: highest unique buyers
   const fastestGrowing = [...leaderboard].sort((a, b) =>
     Number(b.metrics.uniqueBuyerCount) - Number(a.metrics.uniqueBuyerCount)
   )[0];
   if (fastestGrowing && fastestGrowing.token !== mostChaotic?.token) {
     const name = tokenMap.get(fastestGrowing.token.toLowerCase())?.name || shortAddress(fastestGrowing.token);
-    badges.push({ label: "📈 Fastest Growing", token: name });
+    badges.push({ label: "Fastest Growing", token: name });
   }
 
-  // Community fav: highest holder count
   const communityFav = [...leaderboard].sort((a, b) =>
     Number(b.metrics.holderCount) - Number(a.metrics.holderCount)
   )[0];
   if (communityFav && communityFav.token !== mostChaotic?.token && communityFav.token !== fastestGrowing?.token) {
     const name = tokenMap.get(communityFav.token.toLowerCase())?.name || shortAddress(communityFav.token);
-    badges.push({ label: "❤️ Community Fav", token: name });
+    badges.push({ label: "Community Fav", token: name });
   }
 
   return badges;
@@ -81,26 +78,7 @@ const Arena = () => {
   }, [battleData]);
 
   // Build leaderboard display tokens
-  // Absolute normalization baseline for arena score.
-  // On-chain formula: (retainedBuyers*300) + (uniqueBuyers*100) + (buyVolumeUSDC/1e18) + (buyPressureBps*10) + (holderCount*50) + (percentCompleteBps*5)
-  // A strong graduated token scores ~120-150K raw. Use 150K as the "100" ceiling.
-  // Activity ramp reaches full weight at 10 trades (down from 20).
-  // Graduated tokens (percentCompleteBps >= 10000) get a minimum score of 50.
-  const SCORE_NORMALIZATION_MAX = 150_000;
-
-  // Normalize raw score to 0-100, dampened by activity level
-  const normalizeScore = (entry: ArenaParticipantScore): number => {
-    if (entry.score === 0n) return 0;
-    const totalTrades = Number(entry.metrics.buyCount) + Number(entry.metrics.sellCount);
-    const isGraduated = Number(entry.metrics.percentCompleteBps) >= 10000;
-    const activityMultiplier = Math.min(totalTrades / 10, 1);
-    const adjusted = Number(entry.score) * activityMultiplier;
-    let normalized = Math.round((adjusted * 100) / SCORE_NORMALIZATION_MAX);
-    // Graduated tokens have raised 2500 USDC — they deserve a minimum score
-    if (isGraduated) normalized = Math.max(normalized, 50);
-    return Math.min(100, Math.max(1, normalized)); // at least 1 if non-zero raw
-  };
-
+  // Score is already normalized 0-100 by useArenaRegistry (uses computeScore)
   const leaderboardTokens: (Token & { arenaScore: string })[] = (battleData?.leaderboard || []).map((entry, i) => {
     const display = tokenMap.get(entry.token.toLowerCase());
     const baseToken: Token = display || {
@@ -113,7 +91,7 @@ const Arena = () => {
       marketCap: 0,
       volume24h: parseFloat(ethers.formatEther(entry.metrics.totalBuyVolume + entry.metrics.totalSellVolume)),
       holders: Number(entry.metrics.holderCount),
-      hypeScore: 0,
+      hypeScore: entry.score,
       bondingProgress: Number(entry.metrics.percentCompleteBps) / 100,
       category: "Degen",
       creatorId: entry.creator,
@@ -123,7 +101,13 @@ const Arena = () => {
       arenaRank: i + 1,
       status: 'fighting',
     };
-    return { ...baseToken, arenaRank: i + 1, arenaScore: normalizeScore(entry).toString() };
+    return {
+      ...baseToken,
+      arenaRank: i + 1,
+      // Use the same unified score — hypeScore and arenaScore are now identical
+      arenaScore: entry.score.toString(),
+      hypeScore: entry.score,
+    };
   });
 
   // If no battle data, show all tokens sorted by hype as fallback
@@ -161,21 +145,21 @@ const Arena = () => {
         <div className="container max-w-5xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
             <h1 className="text-3xl md:text-5xl font-display text-foreground mb-2">
-              ⚔️ THE <span className="text-primary text-glow-purple">ARENA</span>
+              THE <span className="text-primary text-glow-purple">ARENA</span>
             </h1>
             <p className="text-muted-foreground font-body">Tokens battle for glory. Only the strongest graduate.</p>
             <div className="flex justify-center gap-4 mt-4">
               {battleData?.isActive ? (
                 <span className="badge-sticker bg-accent/20 text-accent border-accent/40 text-xs">
-                  ⏰ Battle ends in {formatCountdown(countdown)}
+                  Battle ends in {formatCountdown(countdown)}
                 </span>
               ) : battleData && countdown <= 0 && Number(battleData.battle.endTime) > 0 ? (
                 <span className="badge-sticker bg-destructive/20 text-destructive border-destructive/40 text-xs">
-                  ⏰ Battle ended
+                  Battle ended
                 </span>
               ) : (
                 <span className="badge-sticker bg-muted/20 text-muted-foreground border-muted/40 text-xs">
-                  ⏰ No active battle
+                  No active battle
                 </span>
               )}
               <span className="badge-sticker bg-secondary/20 text-secondary border-secondary/40 text-xs">
@@ -200,6 +184,7 @@ const Arena = () => {
                 {top3.map((t, i) => {
                   const order = i === 0 ? "md:order-2" : i === 1 ? "md:order-1" : "md:order-3";
                   const scale = i === 0 ? "md:scale-105" : "";
+                  const score = 'arenaScore' in t ? (t as any).arenaScore : t.hypeScore;
                   return (
                     <motion.div
                       key={t.id}
@@ -209,7 +194,7 @@ const Arena = () => {
                       transition={{ delay: i * 0.15 }}
                     >
                       <div className={`card-cartoon text-center ${i === 0 ? "glow-gold border-accent/40" : ""}`}>
-                        <span className="font-display text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
+                        <span className="font-display text-2xl">{i === 0 ? "1st" : i === 1 ? "2nd" : "3rd"}</span>
                         <PodiumLogo logo={t.logo} name={t.name} />
                         <h3 className="font-display text-sm text-foreground">{t.name}</h3>
                         <p className="text-xs text-primary font-body">${t.ticker}</p>
@@ -220,7 +205,7 @@ const Arena = () => {
                           {t.holders} holder{t.holders !== 1 ? "s" : ""} · {t.bondingProgress.toFixed(1)}% bonded
                         </p>
                         <p className="text-xs text-accent font-body mt-1">
-                          ⚡ Score: {'arenaScore' in t ? (t as any).arenaScore : t.hypeScore}
+                          Score: {score}/100
                         </p>
                       </div>
                     </motion.div>
@@ -283,7 +268,7 @@ const Arena = () => {
 
           {/* Arena Chat */}
           <div className="mt-8">
-            <ChatBox title="💬 ARENA CHAT" context="arena" />
+            <ChatBox title="ARENA CHAT" context="arena" />
           </div>
         </div>
       </div>

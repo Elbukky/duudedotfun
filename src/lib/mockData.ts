@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
-import type { EnrichedToken } from "@/hooks/useTokenFactory";
+import type { EnrichedToken } from "@/lib/tokenDataProvider";
+import { computeScore } from "@/lib/contracts";
 
 // ---------- Creator name localStorage helpers ----------
 // Stored as: creator-name-{lowerCaseAddress} → string
@@ -108,14 +109,17 @@ export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
   const bondingPct = bondingBps / 100; // bps to percentage
   const uniqueBuyers = Number(e.uniqueBuyerCount);
 
-  // Compute hype score: composite of bonding progress, holders, volume
-  const totalVol = buyVol + sellVol + poolVol;
-  const hypeScore = Math.min(100, Math.floor(
-    bondingPct * 0.4 +
-    Math.min(holders * 2, 30) +
-    Math.min(totalVol / 50, 20) +
-    Math.min(uniqueBuyers, 10)
-  ));
+  // Compute hype score: unified formula (same as arena)
+  const hypeScore = computeScore({
+    retainedBuyers: e.retainedBuyers,
+    uniqueBuyerCount: e.uniqueBuyerCount,
+    totalBuyVolume: e.totalBuyVolume,
+    buyPressureBps: e.buyPressureBps,
+    holderCount: e.holderCount,
+    percentCompleteBps: e.bondingProgressBps,
+    buyCount: e.buyCount,
+    sellCount: e.sellCount,
+  });
 
   // Determine status
   let status: Token['status'] = 'new';
@@ -151,7 +155,7 @@ export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
     price,
     priceChange24h: 0, // Need historical data for this
     marketCap: price * 100_000_000_000, // spotPrice * totalSupply
-    volume24h: totalVol,
+    volume24h: buyVol + sellVol + poolVol,
     holders,
     hypeScore,
     bondingProgress: bondingPct,

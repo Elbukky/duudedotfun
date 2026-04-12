@@ -134,6 +134,66 @@ export interface ArenaMetrics {
   percentCompleteBps: bigint;
 }
 
+/**
+ * Unified score formula (0-100). Used on homepage, token detail, and arena.
+ * Mirrors the on-chain ArenaRegistry formula, normalized with activity damping.
+ *
+ * Raw formula:
+ *   (retainedBuyers*300) + (uniqueBuyers*100) + (buyVolumeUSDC/1e18) +
+ *   (buyPressureBps*10) + (holderCount*50) + (percentCompleteBps*5)
+ *
+ * Then: adjusted = rawScore * min(totalTrades/10, 1)
+ * Normalized to 0-100 against a 150K ceiling.
+ * Graduated tokens (percentCompleteBps >= 10000) get a floor of 50.
+ */
+export function computeScore(metrics: {
+  retainedBuyers: bigint | number;
+  uniqueBuyerCount: bigint | number;
+  totalBuyVolume: bigint | number;
+  buyPressureBps: bigint | number;
+  holderCount: bigint | number;
+  percentCompleteBps: bigint | number;
+  buyCount: bigint | number;
+  sellCount: bigint | number;
+}): number {
+  const retainedBuyers = Number(metrics.retainedBuyers);
+  const uniqueBuyers = Number(metrics.uniqueBuyerCount);
+  const buyPressureBps = Number(metrics.buyPressureBps);
+  const holderCount = Number(metrics.holderCount);
+  const percentCompleteBps = Number(metrics.percentCompleteBps);
+  const buyCount = Number(metrics.buyCount);
+  const sellCount = Number(metrics.sellCount);
+
+  // Buy volume in USDC (whole units). Accept both bigint (wei) and number.
+  const buyVolumeUSDC =
+    typeof metrics.totalBuyVolume === "bigint"
+      ? Number(metrics.totalBuyVolume / 10n ** 18n)
+      : metrics.totalBuyVolume;
+
+  // On-chain raw score formula
+  const rawScore =
+    retainedBuyers * 300 +
+    uniqueBuyers * 100 +
+    buyVolumeUSDC +
+    buyPressureBps * 10 +
+    holderCount * 50 +
+    percentCompleteBps * 5;
+
+  if (rawScore === 0) return 0;
+
+  const totalTrades = buyCount + sellCount;
+  const isGraduated = percentCompleteBps >= 10000;
+  const activityMultiplier = Math.min(totalTrades / 10, 1);
+  const adjusted = rawScore * activityMultiplier;
+
+  const SCORE_NORMALIZATION_MAX = 150_000;
+  let normalized = Math.round((adjusted * 100) / SCORE_NORMALIZATION_MAX);
+
+  if (isGraduated) normalized = Math.max(normalized, 50);
+
+  return Math.min(100, Math.max(1, normalized));
+}
+
 // Battle type
 export interface BattleParticipant {
   token: string;

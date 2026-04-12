@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "@/lib/web3Provider";
+import { useTokenData, type EnrichedToken } from "@/lib/tokenDataProvider";
 import {
   getTokenFactory,
   getTokenFactoryWrite,
-  getBondingCurve,
-  getPostMigrationPool,
   type TokenRecord,
 } from "@/lib/contracts";
+
+// Re-export EnrichedToken so existing imports still work
+export type { EnrichedToken } from "@/lib/tokenDataProvider";
 
 export interface CreateTokenParams {
   name: string;
@@ -26,163 +28,10 @@ export interface CreateTokenParams {
   referrer: string;
 }
 
-// Enriched token data for frontend display
-export interface EnrichedToken {
-  record: TokenRecord;
-  spotPrice: bigint;
-  realUSDCRaised: bigint;
-  realTokensSold: bigint;
-  holderCount: bigint;
-  bondingProgressBps: bigint;
-  totalBuyVolume: bigint;
-  totalSellVolume: bigint;
-  buyCount: bigint;
-  sellCount: bigint;
-  uniqueBuyerCount: bigint;
-  postMigrationVolume: bigint;  // USDC volume from DEX pool swaps
-  poolSpotPrice: bigint;         // Spot price from DEX pool (0 if not graduated)
-}
-
 export function useTokenFactory() {
   const { readProvider, signer, isConnected } = useWeb3();
-  const [tokens, setTokens] = useState<TokenRecord[]>([]);
-  const [enrichedTokens, setEnrichedTokens] = useState<EnrichedToken[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { enrichedTokens, tokenCount, loading, refresh } = useTokenData();
   const [creating, setCreating] = useState(false);
-  const [tokenCount, setTokenCount] = useState(0);
-
-  // Fetch all tokens from factory
-  const fetchTokens = useCallback(async () => {
-    try {
-      setLoading(true);
-      const factory = getTokenFactory(readProvider);
-      const count = await factory.getTokenCount();
-      setTokenCount(Number(count));
-
-      if (Number(count) === 0) {
-        setTokens([]);
-        setEnrichedTokens([]);
-        return;
-      }
-
-      // Fetch all token records (paginated)
-      const batchSize = 50;
-      const allRecords: TokenRecord[] = [];
-      for (let i = 0; i < Number(count); i += batchSize) {
-        const limit = Math.min(batchSize, Number(count) - i);
-        const records = await factory.getTokens(i, limit);
-        allRecords.push(...records);
-      }
-
-      setTokens(allRecords);
-
-      // Enrich with bonding curve data
-      const enriched: EnrichedToken[] = await Promise.all(
-        allRecords.map(async (record) => {
-          try {
-            const curve = getBondingCurve(record.curve, readProvider);
-            const [spotPrice, realUSDCRaised, realTokensSold] = await Promise.all([
-              curve.spotPrice().catch(() => 0n),
-              curve.realUSDCRaised().catch(() => 0n),
-              curve.realTokensSold().catch(() => 0n),
-            ]);
-
-            let metrics = {
-              totalBuyVolume: 0n, totalSellVolume: 0n,
-              buyCount: 0n, sellCount: 0n,
-              uniqueBuyerCount: 0n, holderCount: 0n,
-              retainedBuyers: 0n, buyPressureBps: 0n, percentCompleteBps: 0n,
-            };
-
-            try {
-              const m = await curve.getArenaMetrics();
-              metrics = {
-                totalBuyVolume: m[0], totalSellVolume: m[1],
-                buyCount: m[2], sellCount: m[3],
-                uniqueBuyerCount: m[4], holderCount: m[5],
-                retainedBuyers: m[6], buyPressureBps: m[7], percentCompleteBps: m[8],
-              };
-            } catch {}
-
-            // For graduated tokens, fetch pool spot price and swap volume
-            let poolSpotPrice = 0n;
-            let postMigrationVolume = 0n;
-            if (record.graduated && record.migrationPool && record.migrationPool !== ethers.ZeroAddress) {
-              try {
-                const poolContract = getPostMigrationPool(record.migrationPool, readProvider);
-                poolSpotPrice = await poolContract.spotPrice();
-              } catch {}
-
-              // Fetch pool swap events for volume
-              try {
-                const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
-                const SWAP_TOPIC = ethers.id("Swap(address,address,uint256,uint256,uint256,uint256)").toLowerCase();
-                const res = await fetch(`${ARCSCAN_BASE}/addresses/${record.migrationPool}/logs`);
-                if (res.ok) {
-                  const data = await res.json();
-                  const logs = data.items || [];
-                  const swapIface = new ethers.Interface([
-                    "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
-                  ]);
-                  for (const log of logs) {
-                    if (!log.topics || !log.topics[0]) continue;
-                    if (log.topics[0].toLowerCase() !== SWAP_TOPIC) continue;
-                    try {
-                      const topics = log.topics.filter((t: any) => t != null);
-                      const parsed = swapIface.parseLog({ topics, data: log.data });
-                      if (parsed) {
-                        const usdcIn = parsed.args.usdcIn;
-                        const usdcOut = parsed.args.usdcOut;
-                        postMigrationVolume += usdcIn > 0n ? usdcIn : usdcOut;
-                      }
-                    } catch {}
-                  }
-                }
-              } catch {}
-            }
-
-            return {
-              record,
-              spotPrice,
-              realUSDCRaised,
-              realTokensSold,
-              holderCount: metrics.holderCount,
-              bondingProgressBps: metrics.percentCompleteBps,
-              totalBuyVolume: metrics.totalBuyVolume,
-              totalSellVolume: metrics.totalSellVolume,
-              buyCount: metrics.buyCount,
-              sellCount: metrics.sellCount,
-              uniqueBuyerCount: metrics.uniqueBuyerCount,
-              postMigrationVolume,
-              poolSpotPrice,
-            };
-          } catch {
-            return {
-              record,
-              spotPrice: 0n,
-              realUSDCRaised: 0n,
-              realTokensSold: 0n,
-              holderCount: 0n,
-              bondingProgressBps: 0n,
-              totalBuyVolume: 0n,
-              totalSellVolume: 0n,
-              buyCount: 0n,
-              sellCount: 0n,
-              uniqueBuyerCount: 0n,
-              postMigrationVolume: 0n,
-              poolSpotPrice: 0n,
-            };
-          }
-        })
-      );
-
-      setEnrichedTokens(enriched);
-    } catch (err) {
-      console.error("Failed to fetch tokens:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [readProvider]);
 
   // Create a new token
   const createToken = useCallback(
@@ -214,31 +63,34 @@ export function useTokenFactory() {
         const receipt = await tx.wait();
 
         // Parse TokenCreated event to get the new token address
-        const iface = new ethers.Interface(
-          ["event TokenCreated(address indexed token, address indexed curve, address indexed creator, string name, string symbol)"]
-        );
+        const iface = new ethers.Interface([
+          "event TokenCreated(address indexed token, address indexed curve, address indexed creator, string name, string symbol)",
+        ]);
         let tokenAddress = "";
         let curveAddress = "";
         for (const log of receipt.logs) {
           try {
-            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
+            const parsed = iface.parseLog({
+              topics: [...log.topics],
+              data: log.data,
+            });
             if (parsed?.name === "TokenCreated") {
-              tokenAddress = parsed.args[0]; // token (indexed)
-              curveAddress = parsed.args[1]; // curve (indexed)
+              tokenAddress = parsed.args[0];
+              curveAddress = parsed.args[1];
               break;
             }
           } catch {}
         }
 
-        // Refresh tokens list
-        await fetchTokens();
+        // Refresh shared token data
+        await refresh();
 
         return { tokenAddress, curveAddress, txHash: receipt.hash };
       } finally {
         setCreating(false);
       }
     },
-    [signer, isConnected, fetchTokens]
+    [signer, isConnected, refresh]
   );
 
   // Get a single token record by address
@@ -261,7 +113,6 @@ export function useTokenFactory() {
     async (creator: string) => {
       try {
         const factory = getTokenFactory(readProvider);
-        // getCreatorStats returns (tokensCreated, tokensGraduated, arenaBattlesWon, tokenList)
         const result = await factory.getCreatorStats(creator);
         return {
           tokensCreated: Number(result[0]),
@@ -280,9 +131,8 @@ export function useTokenFactory() {
     async (creator: string): Promise<string[]> => {
       try {
         const factory = getTokenFactory(readProvider);
-        // getCreatorStats returns (tokensCreated, tokensGraduated, arenaBattlesWon, tokenList)
         const result = await factory.getCreatorStats(creator);
-        const tokenList: string[] = [...result[3]]; // 4th return value is address[]
+        const tokenList: string[] = [...result[3]];
         return tokenList;
       } catch {
         return [];
@@ -291,18 +141,14 @@ export function useTokenFactory() {
     [readProvider]
   );
 
-  useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
-
   return {
-    tokens,
+    tokens: enrichedTokens.map((e) => e.record),
     enrichedTokens,
     loading,
     creating,
     tokenCount,
     createToken,
-    fetchTokens,
+    fetchTokens: refresh,
     getTokenRecord,
     getCreatorStats,
     getCreatorTokens,

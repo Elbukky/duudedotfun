@@ -23,7 +23,11 @@ interface Web3State {
   disconnect: () => void;
 }
 
-const readProvider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID);
+const readProvider = new ethers.JsonRpcProvider(RPC_URL, CHAIN_ID, {
+  staticNetwork: true,
+  batchMaxCount: 50,
+  batchStallTime: 10,
+});
 
 const Web3Context = createContext<Web3State>({
   provider: null,

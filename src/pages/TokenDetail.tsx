@@ -21,6 +21,7 @@ import {
   formatTokenAmount,
   formatPrice,
   formatNumber,
+  computeScore,
   type TokenRecord,
   type ArenaMetrics,
 } from "@/lib/contracts";
@@ -195,16 +196,10 @@ const TokenDetail = () => {
     : 0;
   const totalVol = buyVol + sellVol + postMigrationVolume;
 
-  // Hype score
-  const hypeScore = Math.min(
-    100,
-    Math.floor(
-      bondingPct * 0.4 +
-        Math.min(holders * 2, 30) +
-        Math.min(buyVol / 50, 20) +
-        Math.min(uniqueBuyers, 10)
-    )
-  );
+  // Hype score — unified formula (same as arena)
+  const hypeScore = arenaMetrics
+    ? computeScore(arenaMetrics)
+    : 0;
 
   // Status
   let status: Token["status"] = "new";
