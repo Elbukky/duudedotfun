@@ -25,6 +25,7 @@ import {
 } from "@/lib/contracts";
 import { shortAddress, addressLink, tokenLink } from "@/lib/arcscan";
 import type { Token, Mission } from "@/lib/mockData";
+import { resolveCreatorDisplayName } from "@/lib/mockData";
 
 const TokenDetail = () => {
   const { address } = useParams<{ address: string }>();
@@ -208,7 +209,7 @@ const TokenDetail = () => {
     bondingProgress: bondingPct,
     category: record?.links?.extra || "Degen",
     creatorId: record?.creator || "",
-    creatorName: record ? shortAddress(record.creator) : "",
+    creatorName: record ? resolveCreatorDisplayName(record.creator) : "",
     lore: record?.description || "",
     launchedAt,
     arenaRank: 0,
@@ -400,7 +401,7 @@ const TokenDetail = () => {
                       to={`/creator/${record.creator}`}
                       className="text-xs text-primary font-body hover:underline"
                     >
-                      by {shortAddress(record.creator)}
+                      by {resolveCreatorDisplayName(record.creator)}
                     </Link>
                     <span className="text-xs text-muted-foreground">
                       · {launchedAt}

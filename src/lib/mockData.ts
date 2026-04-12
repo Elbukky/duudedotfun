@@ -1,6 +1,29 @@
 import { ethers } from "ethers";
 import type { EnrichedToken } from "@/hooks/useTokenFactory";
 
+// ---------- Creator name localStorage helpers ----------
+// Stored as: creator-name-{lowerCaseAddress} → string
+export function getCreatorName(address: string): string {
+  try {
+    return localStorage.getItem(`creator-name-${address.toLowerCase()}`) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function setCreatorName(address: string, name: string): void {
+  try {
+    localStorage.setItem(`creator-name-${address.toLowerCase()}`, name.trim());
+  } catch {}
+}
+
+/** Returns the saved creator name if any, otherwise shortAddress fallback */
+export function resolveCreatorDisplayName(address: string): string {
+  const name = getCreatorName(address);
+  if (name) return name;
+  return address.slice(0, 6) + "..." + address.slice(-4);
+}
+
 export interface Token {
   id: string; // token contract address
   name: string;
@@ -130,7 +153,7 @@ export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
     bondingProgress: bondingPct,
     category: e.record.links?.extra || "Degen",
     creatorId: e.record.creator,
-    creatorName: e.record.creator.slice(0, 6) + "..." + e.record.creator.slice(-4),
+    creatorName: resolveCreatorDisplayName(e.record.creator),
     lore: e.record.description,
     launchedAt,
     arenaRank: rank,

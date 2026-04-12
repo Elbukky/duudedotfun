@@ -6,9 +6,9 @@ import { getPostMigrationPool, getPostMigrationPoolWrite } from "@/lib/contracts
 export interface PoolStats {
   tokenReserve: bigint;
   usdcReserve: bigint;
-  spotPrice: bigint;
   totalLPSupply: bigint;
   activeLPSupply: bigint;
+  spotPrice: bigint;
 }
 
 export function usePostMigrationPool(poolAddress: string | null) {
@@ -17,19 +17,21 @@ export function usePostMigrationPool(poolAddress: string | null) {
   const [addingLiquidity, setAddingLiquidity] = useState(false);
   const [removingLiquidity, setRemovingLiquidity] = useState(false);
 
+  // ABI: getPoolStats() returns (tokenReserve_, usdcReserve_, totalLPSupply_, activeLPSupply_, spotPrice_)
   const getPoolStats = useCallback(async (): Promise<PoolStats | null> => {
     if (!poolAddress || poolAddress === ethers.ZeroAddress) return null;
     try {
       const pool = getPostMigrationPool(poolAddress, readProvider);
       const stats = await pool.getPoolStats();
       return {
-        tokenReserve: stats[0],
-        usdcReserve: stats[1],
-        spotPrice: stats[2],
-        totalLPSupply: stats[3],
-        activeLPSupply: stats[4],
+        tokenReserve: stats[0],     // tokenReserve_
+        usdcReserve: stats[1],      // usdcReserve_
+        totalLPSupply: stats[2],    // totalLPSupply_
+        activeLPSupply: stats[3],   // activeLPSupply_
+        spotPrice: stats[4],        // spotPrice_
       };
-    } catch {
+    } catch (err) {
+      console.error("getPoolStats failed:", err);
       return null;
     }
   }, [poolAddress, readProvider]);

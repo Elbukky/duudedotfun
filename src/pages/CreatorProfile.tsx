@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink } from "lucide-react";
+import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil } from "lucide-react";
 import { ethers } from "ethers";
 import Navbar from "@/components/Navbar";
 import TokenCard from "@/components/TokenCard";
@@ -9,14 +9,14 @@ import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useWeb3 } from "@/lib/web3Provider";
 import { getBondingCurve, type TokenRecord } from "@/lib/contracts";
-import { enrichedToToken } from "@/lib/mockData";
+import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 
 const CreatorProfile = () => {
   const { address } = useParams<{ address: string }>();
   const { getCreatorStats, getCreatorTokens, getTokenRecord } = useTokenFactory();
   const { getCreatorRecord } = useArenaRegistry();
-  const { readProvider } = useWeb3();
+  const { readProvider, address: connectedAddress } = useWeb3();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ tokensCreated: 0, tokensGraduated: 0, arenaBattlesWon: 0 });
@@ -26,6 +26,14 @@ const CreatorProfile = () => {
 
   // Mock profile image (stored locally as base64 for now)
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Creator name system (localStorage, MongoDB later)
+  const [creatorNameValue, setCreatorNameValue] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+
+  // Is the connected wallet viewing their own profile?
+  const isOwnProfile = !!(connectedAddress && address && connectedAddress.toLowerCase() === address.toLowerCase());
 
   const fetchCreatorData = useCallback(async () => {
     if (!address) return;
@@ -124,11 +132,12 @@ const CreatorProfile = () => {
     fetchCreatorData();
   }, [fetchCreatorData]);
 
-  // Load saved profile image from localStorage
+  // Load saved profile image and creator name from localStorage
   useEffect(() => {
     if (address) {
       const saved = localStorage.getItem(`profile-image-${address.toLowerCase()}`);
       if (saved) setProfileImage(saved);
+      setCreatorNameValue(getCreatorName(address));
     }
   }, [address]);
 
@@ -142,6 +151,19 @@ const CreatorProfile = () => {
       localStorage.setItem(`profile-image-${address.toLowerCase()}`, dataUri);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleSaveName = () => {
+    if (!address) return;
+    const trimmed = nameInput.trim();
+    saveCreatorName(address, trimmed);
+    setCreatorNameValue(trimmed);
+    setEditingName(false);
+  };
+
+  const handleStartEditName = () => {
+    setNameInput(creatorNameValue);
+    setEditingName(true);
   };
 
   const copyAddress = () => {
@@ -231,13 +253,55 @@ const CreatorProfile = () => {
                       🧑‍💻
                     </motion.span>
                   )}
-                  <label className="absolute bottom-0 right-0 bg-primary/80 text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center cursor-pointer hover:bg-primary text-xs">
-                    +
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                  </label>
+                  {isOwnProfile && (
+                    <label className="absolute bottom-0 right-0 bg-primary/80 text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center cursor-pointer hover:bg-primary text-xs">
+                      +
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                    </label>
+                  )}
                 </div>
 
-                <h1 className="font-display text-2xl text-foreground">{shortAddress(address)}</h1>
+                <h1 className="font-display text-2xl text-foreground">
+                  {creatorNameValue || shortAddress(address)}
+                </h1>
+                {isOwnProfile && (
+                  <div className="mt-1">
+                    {editingName ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <input
+                          type="text"
+                          value={nameInput}
+                          onChange={(e) => setNameInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                          placeholder="Enter your name..."
+                          maxLength={32}
+                          className="bg-muted border border-primary/30 rounded-lg px-3 py-1 text-sm text-foreground font-body focus:outline-none focus:border-primary/60 w-48"
+                          autoFocus
+                        />
+                        <button
+                          onClick={handleSaveName}
+                          className="text-xs font-body text-secondary hover:text-secondary/80 px-2 py-1 rounded bg-secondary/10"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingName(false)}
+                          className="text-xs font-body text-muted-foreground hover:text-foreground px-2 py-1"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleStartEditName}
+                        className="text-xs font-body text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                      >
+                        <Pencil size={10} />
+                        {creatorNameValue ? "Edit name" : "Set display name"}
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-center gap-2 mt-1">
                   <p className="text-xs text-muted-foreground font-body font-mono">{address}</p>
                   <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground">

@@ -51,8 +51,14 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
         const fromBlock = Math.max(0, currentBlock - 50000);
 
         const [buyLogs, sellLogs] = await Promise.all([
-          curve.queryFilter(curve.filters.Buy(), fromBlock, currentBlock).catch(() => []),
-          curve.queryFilter(curve.filters.Sell(), fromBlock, currentBlock).catch(() => []),
+          curve.queryFilter(curve.filters.Buy(), fromBlock, currentBlock).catch((e) => {
+            console.warn("Failed to fetch Buy events:", e);
+            return [];
+          }),
+          curve.queryFilter(curve.filters.Sell(), fromBlock, currentBlock).catch((e) => {
+            console.warn("Failed to fetch Sell events:", e);
+            return [];
+          }),
         ]);
 
         const points: TradePoint[] = [];
@@ -144,7 +150,7 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
     );
   }
 
-  // No trades - show current price
+  // No trades or just 1 trade - show current price with a visual
   if (candles.length === 0) {
     return (
       <div className="card-cartoon">
@@ -156,23 +162,56 @@ const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: Can
             </span>
           )}
         </div>
-        <div
-          className="flex flex-col items-center justify-center bg-muted/30 rounded-xl"
-          style={{ height: chartH }}
-        >
-          <p className="font-display text-2xl text-foreground">
-            ${currentPrice < 0.01 ? currentPrice.toFixed(8) : currentPrice.toFixed(6)}
-          </p>
-          <p className="text-xs text-muted-foreground font-body mt-2">
-            {trades.length === 0
-              ? "No trades yet — be the first!"
-              : "Current spot price"}
-          </p>
-          {trades.length === 1 && (
-            <p className="text-xs text-muted-foreground font-body mt-1">
-              1 trade recorded
+        <div className="relative w-full" style={{ height: chartH }}>
+          {/* Visual price line at center */}
+          <svg
+            viewBox={`0 0 200 ${chartH}`}
+            preserveAspectRatio="none"
+            className="w-full h-full"
+          >
+            {/* Grid lines */}
+            {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+              <line
+                key={pct}
+                x1="0"
+                y1={8 + pct * (chartH - 16)}
+                x2="200"
+                y2={8 + pct * (chartH - 16)}
+                stroke="hsl(var(--muted-foreground))"
+                strokeOpacity={0.08}
+                strokeDasharray="4 4"
+              />
+            ))}
+            {/* Flat price line */}
+            <line
+              x1="10"
+              y1={chartH / 2}
+              x2="190"
+              y2={chartH / 2}
+              stroke="hsl(var(--secondary))"
+              strokeWidth={2}
+              strokeDasharray="6 3"
+              strokeOpacity={0.6}
+            />
+            {/* Current price dot */}
+            <circle
+              cx="190"
+              cy={chartH / 2}
+              r={4}
+              fill="hsl(var(--secondary))"
+            />
+          </svg>
+          {/* Centered price overlay */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <p className="font-display text-2xl text-foreground">
+              ${currentPrice < 0.000001 ? currentPrice.toExponential(2) : currentPrice < 0.01 ? currentPrice.toFixed(8) : currentPrice.toFixed(6)}
             </p>
-          )}
+            <p className="text-xs text-muted-foreground font-body mt-2">
+              {trades.length === 0
+                ? "No trades yet — be the first!"
+                : `${trades.length} trade${trades.length > 1 ? "s" : ""} recorded`}
+            </p>
+          </div>
         </div>
       </div>
     );

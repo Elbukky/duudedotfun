@@ -81,6 +81,18 @@ const Arena = () => {
   }, [battleData]);
 
   // Build leaderboard display tokens
+  // First, find max raw score for normalization
+  const maxRawScore = (battleData?.leaderboard || []).reduce(
+    (max, entry) => (entry.score > max ? entry.score : max),
+    0n
+  );
+
+  // Normalize raw score to 0-100
+  const normalizeScore = (raw: bigint): number => {
+    if (maxRawScore === 0n) return 0;
+    return Math.min(100, Math.round((Number(raw) / Number(maxRawScore)) * 100));
+  };
+
   const leaderboardTokens: (Token & { arenaScore: string })[] = (battleData?.leaderboard || []).map((entry, i) => {
     const display = tokenMap.get(entry.token.toLowerCase());
     const baseToken: Token = display || {
@@ -103,7 +115,7 @@ const Arena = () => {
       arenaRank: i + 1,
       status: 'fighting',
     };
-    return { ...baseToken, arenaRank: i + 1, arenaScore: entry.score.toString() };
+    return { ...baseToken, arenaRank: i + 1, arenaScore: normalizeScore(entry.score).toString() };
   });
 
   // If no battle data, show all tokens sorted by hype as fallback
