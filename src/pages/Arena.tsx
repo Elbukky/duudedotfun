@@ -83,19 +83,21 @@ const Arena = () => {
   // Build leaderboard display tokens
   // Absolute normalization baseline for arena score.
   // On-chain formula: (retainedBuyers*300) + (uniqueBuyers*100) + (buyVolumeUSDC/1e18) + (buyPressureBps*10) + (holderCount*50) + (percentCompleteBps*5)
-  // buyPressureBps=10000 (100%) for a fresh token with 1 buy and 0 sells gives 100K raw points.
-  // To prevent new tokens from scoring high, we apply an activity multiplier:
-  // activityMultiplier = min(totalTrades / 20, 1) — ramps up over 20 trades.
-  // A strong graduated token with lots of activity scores ~185K. Use 200K as the "100" ceiling.
-  const SCORE_NORMALIZATION_MAX = 200_000;
+  // A strong graduated token scores ~120-150K raw. Use 150K as the "100" ceiling.
+  // Activity ramp reaches full weight at 10 trades (down from 20).
+  // Graduated tokens (percentCompleteBps >= 10000) get a minimum score of 50.
+  const SCORE_NORMALIZATION_MAX = 150_000;
 
   // Normalize raw score to 0-100, dampened by activity level
   const normalizeScore = (entry: ArenaParticipantScore): number => {
     if (entry.score === 0n) return 0;
     const totalTrades = Number(entry.metrics.buyCount) + Number(entry.metrics.sellCount);
-    const activityMultiplier = Math.min(totalTrades / 20, 1);
+    const isGraduated = Number(entry.metrics.percentCompleteBps) >= 10000;
+    const activityMultiplier = Math.min(totalTrades / 10, 1);
     const adjusted = Number(entry.score) * activityMultiplier;
-    const normalized = Math.round((adjusted * 100) / SCORE_NORMALIZATION_MAX);
+    let normalized = Math.round((adjusted * 100) / SCORE_NORMALIZATION_MAX);
+    // Graduated tokens have raised 2500 USDC — they deserve a minimum score
+    if (isGraduated) normalized = Math.max(normalized, 50);
     return Math.min(100, Math.max(1, normalized)); // at least 1 if non-zero raw
   };
 

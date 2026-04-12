@@ -90,6 +90,9 @@ const CandlestickChart = ({
 
   // Fetch trade events from Arcscan API
   useEffect(() => {
+    // Don't fetch until we have at least one contract address
+    if (!curveAddress && !poolAddress) return;
+
     const fetchTrades = async () => {
       setLoading(true);
       const points: TradePoint[] = [];
@@ -224,8 +227,8 @@ const CandlestickChart = ({
 
   // Build candles from trade points
   const candles = useMemo(() => {
-    if (trades.length < 2) return [];
-    const numCandles = Math.min(30, Math.max(4, Math.floor(trades.length / 2)));
+    if (trades.length === 0) return [];
+    const numCandles = Math.min(30, Math.max(1, Math.ceil(trades.length / 2)));
     const candleSize = Math.ceil(trades.length / numCandles);
     const result: Candle[] = [];
 
@@ -345,7 +348,7 @@ const CandlestickChart = ({
   // Calculate candle spacing within fixed viewBox
   const totalCandles = candles.length;
   const candleSpacing = CHART_WIDTH / totalCandles;
-  const candleWidth = Math.min(20, Math.max(6, candleSpacing * 0.65));
+  const candleWidth = Math.min(28, Math.max(8, candleSpacing * 0.85));
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;

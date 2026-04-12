@@ -5,6 +5,7 @@ import {
   getTokenFactory,
   getTokenFactoryWrite,
   getBondingCurve,
+  getPostMigrationPool,
   type TokenRecord,
 } from "@/lib/contracts";
 
@@ -38,6 +39,8 @@ export interface EnrichedToken {
   buyCount: bigint;
   sellCount: bigint;
   uniqueBuyerCount: bigint;
+  postMigrationVolume: bigint;  // USDC volume from DEX pool swaps
+  poolSpotPrice: bigint;         // Spot price from DEX pool (0 if not graduated)
 }
 
 export function useTokenFactory() {
@@ -101,6 +104,43 @@ export function useTokenFactory() {
               };
             } catch {}
 
+            // For graduated tokens, fetch pool spot price and swap volume
+            let poolSpotPrice = 0n;
+            let postMigrationVolume = 0n;
+            if (record.graduated && record.migrationPool && record.migrationPool !== ethers.ZeroAddress) {
+              try {
+                const poolContract = getPostMigrationPool(record.migrationPool, readProvider);
+                poolSpotPrice = await poolContract.spotPrice();
+              } catch {}
+
+              // Fetch pool swap events for volume
+              try {
+                const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
+                const SWAP_TOPIC = ethers.id("Swap(address,address,uint256,uint256,uint256,uint256)").toLowerCase();
+                const res = await fetch(`${ARCSCAN_BASE}/addresses/${record.migrationPool}/logs`);
+                if (res.ok) {
+                  const data = await res.json();
+                  const logs = data.items || [];
+                  const swapIface = new ethers.Interface([
+                    "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
+                  ]);
+                  for (const log of logs) {
+                    if (!log.topics || !log.topics[0]) continue;
+                    if (log.topics[0].toLowerCase() !== SWAP_TOPIC) continue;
+                    try {
+                      const topics = log.topics.filter((t: any) => t != null);
+                      const parsed = swapIface.parseLog({ topics, data: log.data });
+                      if (parsed) {
+                        const usdcIn = parsed.args.usdcIn;
+                        const usdcOut = parsed.args.usdcOut;
+                        postMigrationVolume += usdcIn > 0n ? usdcIn : usdcOut;
+                      }
+                    } catch {}
+                  }
+                }
+              } catch {}
+            }
+
             return {
               record,
               spotPrice,
@@ -113,6 +153,8 @@ export function useTokenFactory() {
               buyCount: metrics.buyCount,
               sellCount: metrics.sellCount,
               uniqueBuyerCount: metrics.uniqueBuyerCount,
+              postMigrationVolume,
+              poolSpotPrice,
             };
           } catch {
             return {
@@ -127,6 +169,8 @@ export function useTokenFactory() {
               buyCount: 0n,
               sellCount: 0n,
               uniqueBuyerCount: 0n,
+              postMigrationVolume: 0n,
+              poolSpotPrice: 0n,
             };
           }
         })

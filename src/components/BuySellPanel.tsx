@@ -64,18 +64,22 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
         if (graduated) {
           const stats = await pool.getPoolStats();
           if (stats && stats.tokenReserve > 0n && stats.usdcReserve > 0n) {
-            const feeBps = 50n;
+            const feeBps = stats.activeLPSupply > 0n ? 50n : 30n; // 0.5% with LP, 0.3% without
             if (mode === "buy") {
               const usdcIn = ethers.parseEther(amount);
-              const afterFee = (usdcIn * (10000n - feeBps)) / 10000n;
-              const fee = usdcIn - afterFee;
-              const tokensOut = (afterFee * stats.tokenReserve) / (stats.usdcReserve + afterFee);
+              // Fee is deducted from USDC input
+              const usdcInNet = (usdcIn * (10000n - feeBps)) / 10000n;
+              const fee = usdcIn - usdcInNet;
+              const tokensOut = (usdcInNet * stats.tokenReserve) / (stats.usdcReserve + usdcInNet);
               setPoolQuote({ amountOut: tokensOut, fee });
             } else {
               const tokensIn = ethers.parseEther(amount);
-              const afterFee = (tokensIn * (10000n - feeBps)) / 10000n;
-              const usdcOut = (afterFee * stats.usdcReserve) / (stats.tokenReserve + afterFee);
-              setPoolQuote({ amountOut: usdcOut, fee: 0n });
+              // AMM: gross USDC output from selling tokensIn
+              const usdcOutGross = (tokensIn * stats.usdcReserve) / (stats.tokenReserve + tokensIn);
+              // Fee is deducted from USDC output
+              const usdcOutNet = (usdcOutGross * (10000n - feeBps)) / 10000n;
+              const fee = usdcOutGross - usdcOutNet;
+              setPoolQuote({ amountOut: usdcOutNet, fee });
             }
           }
         } else {
@@ -147,9 +151,12 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
           toast.success(`Bought ${tokenSymbol}!`);
         } else {
           const tokensIn = ethers.parseEther(amount);
-          const minUsdcOut = poolQuote ? (poolQuote.amountOut * 97n) / 100n : 0n;
+          // Use the full quote amount (no slippage reduction) so the contract
+          // computes tokensIn ≈ full balance. maxIn caps actual token spending.
+          // Subtract 1 wei to avoid rounding reverts from ceiling division in the contract.
+          const usdcOut = poolQuote ? (poolQuote.amountOut > 1n ? poolQuote.amountOut - 1n : poolQuote.amountOut) : 0n;
           toast.info("Confirming sell...");
-          await pool.swap(0n, minUsdcOut, tokensIn);
+          await pool.swap(0n, usdcOut, tokensIn);
           toast.success(`Sold ${tokenSymbol}!`);
         }
       } else {

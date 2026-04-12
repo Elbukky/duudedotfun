@@ -111,7 +111,11 @@ const TokenDetail = () => {
     try {
       const state = await curve.getCurveState();
       if (state) {
-        setSpotPrice(state.spotPrice);
+        // Only update spotPrice from bonding curve if NOT graduated
+        // (pool price effect below handles graduated tokens)
+        if (!state.graduated) {
+          setSpotPrice(state.spotPrice);
+        }
         setRealUSDCRaised(state.realUSDCRaised);
         setGraduated(state.graduated);
       }
@@ -120,12 +124,27 @@ const TokenDetail = () => {
       const metrics = await curve.getArenaMetrics();
       setArenaMetrics(metrics);
     } catch {}
-    // If graduated, get pool price and compute post-migration volume from pool events
-    if (graduated && poolAddress) {
+  }, [curveAddress, curve]);
+
+  useEffect(() => {
+    if (curveAddress) {
+      refreshData();
+      const interval = setInterval(refreshData, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [curveAddress, refreshData]);
+
+  // Separate effect for pool price + post-migration volume — triggers when poolAddress is set
+  useEffect(() => {
+    if (!poolAddress || poolAddress === ethers.ZeroAddress) return;
+
+    const fetchPoolData = async () => {
+      // Fetch pool spot price
       try {
         const poolPrice = await pool.getSpotPrice();
         if (poolPrice > 0n) setSpotPrice(poolPrice);
       } catch {}
+
       // Fetch PostMigrationPool Swap events for volume
       try {
         const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
@@ -154,16 +173,12 @@ const TokenDetail = () => {
           setPostMigrationVolume(poolVol);
         }
       } catch {}
-    }
-  }, [curveAddress, graduated, poolAddress, curve, pool]);
+    };
 
-  useEffect(() => {
-    if (curveAddress) {
-      refreshData();
-      const interval = setInterval(refreshData, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [curveAddress, refreshData]);
+    fetchPoolData();
+    const interval = setInterval(fetchPoolData, 10000);
+    return () => clearInterval(interval);
+  }, [poolAddress, pool]);
 
   // Derived display values
   const price = parseFloat(ethers.formatEther(spotPrice));

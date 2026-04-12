@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock, Droplets } from "lucide-react";
+import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock, Droplets, Wallet } from "lucide-react";
 import { ethers } from "ethers";
 import Navbar from "@/components/Navbar";
 import TokenCard from "@/components/TokenCard";
@@ -9,14 +9,14 @@ import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve, getPostMigrationPool, type TokenRecord, formatTokenAmount, formatUSDC } from "@/lib/contracts";
+import { getBondingCurve, getPostMigrationPool, getLaunchToken, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
 import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
 
 const CreatorProfile = () => {
   const { address } = useParams<{ address: string }>();
-  const { getCreatorStats, getCreatorTokens, getTokenRecord } = useTokenFactory();
+  const { getCreatorStats, getCreatorTokens, getTokenRecord, enrichedTokens: allEnrichedTokens } = useTokenFactory();
   const { getCreatorRecord } = useArenaRegistry();
   const { readProvider, address: connectedAddress } = useWeb3();
   const { getVestingInfo, claim, claiming } = useVestingVault();
@@ -32,6 +32,9 @@ const CreatorProfile = () => {
 
   // LP fee earnings for graduated tokens
   const [lpEarnings, setLpEarnings] = useState<{ record: TokenRecord; lpBalance: bigint; claimable: bigint }[]>([]);
+
+  // Portfolio: tokens held by this address (not just created)
+  const [portfolio, setPortfolio] = useState<{ record: TokenRecord; balance: bigint; spotPrice: bigint; value: number }[]>([]);
 
   // Mock profile image (stored locally as base64 for now)
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -100,6 +103,8 @@ const CreatorProfile = () => {
               buyCount: metrics.buyCount,
               sellCount: metrics.sellCount,
               uniqueBuyerCount: metrics.uniqueBuyerCount,
+              postMigrationVolume: 0n,
+              poolSpotPrice: 0n,
             };
           } catch {
             // Return a blank enriched token
@@ -124,6 +129,7 @@ const CreatorProfile = () => {
               holderCount: 0n, bondingProgressBps: 0n,
               totalBuyVolume: 0n, totalSellVolume: 0n,
               buyCount: 0n, sellCount: 0n, uniqueBuyerCount: 0n,
+              postMigrationVolume: 0n, poolSpotPrice: 0n,
             };
           }
         })
@@ -197,6 +203,41 @@ const CreatorProfile = () => {
     };
     fetchLP();
   }, [tokens, connectedAddress, isOwnProfile, readProvider]);
+
+  // Fetch portfolio: check balanceOf for all tokens in the factory
+  useEffect(() => {
+    if (!address || allEnrichedTokens.length === 0) {
+      setPortfolio([]);
+      return;
+    }
+    const fetchPortfolio = async () => {
+      const results: { record: TokenRecord; balance: bigint; spotPrice: bigint; value: number }[] = [];
+      await Promise.all(
+        allEnrichedTokens.map(async (e) => {
+          try {
+            const token = getLaunchToken(e.record.token, readProvider);
+            const bal = await token.balanceOf(address);
+            if (bal > 0n) {
+              // Use pool price for graduated tokens, bonding curve price otherwise
+              const price = (e.record.graduated && e.poolSpotPrice > 0n) ? e.poolSpotPrice : e.spotPrice;
+              const balFloat = parseFloat(ethers.formatEther(bal));
+              const priceFloat = parseFloat(ethers.formatEther(price));
+              results.push({
+                record: e.record,
+                balance: bal,
+                spotPrice: price,
+                value: balFloat * priceFloat,
+              });
+            }
+          } catch {}
+        })
+      );
+      // Sort by value descending
+      results.sort((a, b) => b.value - a.value);
+      setPortfolio(results);
+    };
+    fetchPortfolio();
+  }, [address, allEnrichedTokens, readProvider]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -639,6 +680,76 @@ const CreatorProfile = () => {
                   >
                     Manage all LP positions
                   </Link>
+                </div>
+              )}
+
+              {/* Portfolio — tokens held by this address */}
+              {portfolio.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="font-display text-lg text-foreground mb-4">
+                    <Wallet size={18} className="inline mr-1 text-secondary" />
+                    TOKEN <span className="text-secondary">PORTFOLIO</span>
+                  </h2>
+                  {/* Total portfolio value */}
+                  <div className="card-cartoon mb-4 text-center">
+                    <p className="text-xs text-muted-foreground font-body mb-1">Total Portfolio Value</p>
+                    <p className="font-display text-2xl text-secondary">
+                      ${formatNumber(portfolio.reduce((sum, p) => sum + p.value, 0))}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {portfolio.map((p) => {
+                      const balFloat = parseFloat(ethers.formatEther(p.balance));
+                      return (
+                        <motion.div
+                          key={p.record.token}
+                          className="card-cartoon"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <Link
+                              to={`/token/${p.record.token}`}
+                              className="font-display text-sm text-foreground hover:text-primary transition-colors flex items-center gap-2"
+                            >
+                              {p.record.imageURI ? (
+                                <img src={p.record.imageURI} alt="" className="w-6 h-6 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs">
+                                  {p.record.symbol.charAt(0)}
+                                </div>
+                              )}
+                              <span>
+                                {p.record.name}{" "}
+                                <span className="text-primary">${p.record.symbol}</span>
+                              </span>
+                            </Link>
+                            <div className="text-right">
+                              <p className="font-display text-sm text-foreground">
+                                ${formatNumber(p.value)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 text-xs font-body mt-2">
+                            <div>
+                              <span className="text-muted-foreground block">Balance</span>
+                              <span className="text-foreground">{formatTokenAmount(p.balance)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block">Price</span>
+                              <span className="text-foreground">{formatPrice(p.spotPrice)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground block">Status</span>
+                              <span className={p.record.graduated ? "text-secondary" : "text-accent"}>
+                                {p.record.graduated ? "DEX" : "Bonding"}
+                              </span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </>

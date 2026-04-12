@@ -76,7 +76,8 @@ const Index = () => {
   const totalVolume = enrichedTokens.reduce((sum, e) => {
     const buy = parseFloat(ethers.formatEther(e.totalBuyVolume));
     const sell = parseFloat(ethers.formatEther(e.totalSellVolume));
-    return sum + buy + sell;
+    const pool = parseFloat(ethers.formatEther(e.postMigrationVolume));
+    return sum + buy + sell + pool;
   }, 0);
   const totalHolders = enrichedTokens.reduce((sum, e) => sum + Number(e.holderCount), 0);
   const battleCount = battleData ? Number(battleData.battle.endTime) > 0 ? 1 : 0 : 0;

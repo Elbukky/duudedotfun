@@ -96,20 +96,24 @@ export interface Activity {
 
 // Convert on-chain EnrichedToken to display Token
 export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
-  const price = parseFloat(ethers.formatEther(e.spotPrice));
+  // Use pool spot price for graduated tokens, otherwise bonding curve price
+  const effectivePrice = (e.record.graduated && e.poolSpotPrice > 0n) ? e.poolSpotPrice : e.spotPrice;
+  const price = parseFloat(ethers.formatEther(effectivePrice));
   const raised = parseFloat(ethers.formatEther(e.realUSDCRaised));
   const buyVol = parseFloat(ethers.formatEther(e.totalBuyVolume));
   const sellVol = parseFloat(ethers.formatEther(e.totalSellVolume));
+  const poolVol = parseFloat(ethers.formatEther(e.postMigrationVolume));
   const holders = Number(e.holderCount);
   const bondingBps = Number(e.bondingProgressBps);
   const bondingPct = bondingBps / 100; // bps to percentage
   const uniqueBuyers = Number(e.uniqueBuyerCount);
 
   // Compute hype score: composite of bonding progress, holders, volume
+  const totalVol = buyVol + sellVol + poolVol;
   const hypeScore = Math.min(100, Math.floor(
     bondingPct * 0.4 +
     Math.min(holders * 2, 30) +
-    Math.min(buyVol / 50, 20) +
+    Math.min(totalVol / 50, 20) +
     Math.min(uniqueBuyers, 10)
   ));
 
@@ -147,7 +151,7 @@ export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
     price,
     priceChange24h: 0, // Need historical data for this
     marketCap: price * 100_000_000_000, // spotPrice * totalSupply
-    volume24h: buyVol + sellVol,
+    volume24h: totalVol,
     holders,
     hypeScore,
     bondingProgress: bondingPct,
