@@ -230,12 +230,13 @@ const CandlestickChart = ({
     return () => clearInterval(interval);
   }, [curveAddress, poolAddress]);
 
-  // Build candles from trade points — pack tightly
+  // Build candles from trade points — tight packing, proper thickness
   const candles = useMemo(() => {
     if (trades.length === 0) return [];
-    // More candles = tighter packed. Use up to 50 candles, minimum 2 trades per candle.
-    const maxCandles = 50;
-    const numCandles = Math.min(maxCandles, Math.max(1, trades.length));
+    // Target ~20-30 candles so each has multiple trades and real OHLC range.
+    // With few trades, use fewer candles to ensure each has at least 2 trades.
+    const maxCandles = 30;
+    const numCandles = Math.min(maxCandles, Math.max(1, Math.ceil(trades.length / 2)));
     const candleSize = Math.max(1, Math.ceil(trades.length / numCandles));
     const result: Candle[] = [];
 
@@ -353,11 +354,11 @@ const CandlestickChart = ({
   const yPos = (price: number) =>
     PADDING_TOP + CHART_HEIGHT - ((price - rangeMin) / range) * CHART_HEIGHT;
 
-  // Tight candle spacing — candles fill the entire width with minimal gaps
+  // Tight candle spacing — candles fill the entire width with small gaps
   const totalCandles = candles.length;
   const candleSpacing = CHART_WIDTH / totalCandles;
-  // Candle body takes up 92% of slot width — very tight, minimal gap
-  const candleWidth = Math.max(2, candleSpacing * 0.92);
+  // Candle body takes 75% of slot width — close together but visible
+  const candleWidth = Math.max(4, Math.min(24, candleSpacing * 0.75));
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;
@@ -454,7 +455,7 @@ const CandlestickChart = ({
             const wickBot = yPos(c.low);
             const bodyTop = yPos(Math.max(c.open, c.close));
             const bodyBot = yPos(Math.min(c.open, c.close));
-            const bodyH = Math.max(bodyBot - bodyTop, 1.5);
+            const bodyH = Math.max(bodyBot - bodyTop, 3);
             const isHovered = hoveredCandle === i;
 
             return (

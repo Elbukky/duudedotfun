@@ -585,50 +585,6 @@ const TokenDetail = () => {
                 graduated={graduated}
                 poolAddress={poolAddress}
               />
-              <HypeScoreWidget score={hypeScore} />
-
-              {/* Arena Status */}
-              {arenaMetrics && (
-                <div className="card-cartoon">
-                  <h3 className="font-display text-sm text-foreground mb-3">
-                    ARENA STATUS
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="font-display text-lg text-foreground">
-                        {Number(arenaMetrics.buyCount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-body">
-                        Buys
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-display text-lg text-foreground">
-                        {Number(arenaMetrics.sellCount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-body">
-                        Sells
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-display text-lg text-foreground">
-                        {Number(arenaMetrics.retainedBuyers)}
-                      </p>
-                      <p className="text-xs text-muted-foreground font-body">
-                        Retained
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground font-body">
-                      Buy Pressure
-                    </span>
-                    <span className="text-xs font-display text-secondary">
-                      {(Number(arenaMetrics.buyPressureBps) / 100).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
-              )}
 
               {/* DEX Liquidity Info — shown when graduated */}
               {graduated && poolStats && (
@@ -680,6 +636,51 @@ const TokenDetail = () => {
                     </span>
                     <span className="text-muted-foreground">
                       DEX Vol: ${formatNumber(postMigrationVolume)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <HypeScoreWidget score={hypeScore} />
+
+              {/* Arena Status */}
+              {arenaMetrics && (
+                <div className="card-cartoon">
+                  <h3 className="font-display text-sm text-foreground mb-3">
+                    ARENA STATUS
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="font-display text-lg text-foreground">
+                        {Number(arenaMetrics.buyCount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-body">
+                        Buys
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-display text-lg text-foreground">
+                        {Number(arenaMetrics.sellCount)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-body">
+                        Sells
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-display text-lg text-foreground">
+                        {Number(arenaMetrics.retainedBuyers)}
+                      </p>
+                      <p className="text-xs text-muted-foreground font-body">
+                        Retained
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground font-body">
+                      Buy Pressure
+                    </span>
+                    <span className="text-xs font-display text-secondary">
+                      {(Number(arenaMetrics.buyPressureBps) / 100).toFixed(1)}%
                     </span>
                   </div>
                 </div>

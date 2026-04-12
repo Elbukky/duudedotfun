@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import TokenCard from "@/components/TokenCard";
@@ -193,21 +194,23 @@ const Arena = () => {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.15 }}
                     >
-                      <div className={`card-cartoon text-center ${i === 0 ? "glow-gold border-accent/40" : ""}`}>
-                        <span className="font-display text-2xl">{i === 0 ? "1st" : i === 1 ? "2nd" : "3rd"}</span>
-                        <PodiumLogo logo={t.logo} name={t.name} />
-                        <h3 className="font-display text-sm text-foreground">{t.name}</h3>
-                        <p className="text-xs text-primary font-body">${t.ticker}</p>
-                        <p className="text-sm font-display mt-1 text-foreground">
-                          ${t.price < 0.000001 ? t.price.toExponential(2) : t.price.toFixed(6)}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-body mt-1">
-                          {t.holders} holder{t.holders !== 1 ? "s" : ""} · {t.bondingProgress.toFixed(1)}% bonded
-                        </p>
-                        <p className="text-xs text-accent font-body mt-1">
-                          Score: {score}/100
-                        </p>
-                      </div>
+                      <Link to={`/token/${t.id}`} className="block">
+                        <div className={`card-cartoon text-center cursor-pointer hover:border-primary/60 transition-all ${i === 0 ? "glow-gold border-accent/40" : ""}`}>
+                          <span className="font-display text-2xl">{i === 0 ? "1st" : i === 1 ? "2nd" : "3rd"}</span>
+                          <PodiumLogo logo={t.logo} name={t.name} />
+                          <h3 className="font-display text-sm text-foreground">{t.name}</h3>
+                          <p className="text-xs text-primary font-body">${t.ticker}</p>
+                          <p className="text-sm font-display mt-1 text-foreground">
+                            ${t.price < 0.000001 ? t.price.toExponential(2) : t.price.toFixed(6)}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-body mt-1">
+                            {t.holders} holder{t.holders !== 1 ? "s" : ""} · {t.bondingProgress.toFixed(1)}% bonded
+                          </p>
+                          <p className="text-xs text-accent font-body mt-1">
+                            Score: {score}/100
+                          </p>
+                        </div>
+                      </Link>
                     </motion.div>
                   );
                 })}
