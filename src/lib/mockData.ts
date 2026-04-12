@@ -107,11 +107,20 @@ export function enrichedToToken(e: EnrichedToken, rank: number = 0): Token {
     launchedAt = diffH >= 24 ? `${Math.floor(diffH / 24)}d ago` : `${diffH}h ago`;
   }
 
+  // Resolve logo: on-chain imageURI > localStorage fallback > "?"
+  let logo = e.record.imageURI || "";
+  if (!logo) {
+    try {
+      logo = localStorage.getItem(`token-image-${e.record.token.toLowerCase()}`) || "";
+    } catch {}
+  }
+  if (!logo) logo = "?";
+
   return {
     id: e.record.token,
     name: e.record.name,
     ticker: e.record.symbol,
-    logo: e.record.imageURI || "?",
+    logo,
     price,
     priceChange24h: 0, // Need historical data for this
     marketCap: price * 100_000_000_000, // spotPrice * totalSupply

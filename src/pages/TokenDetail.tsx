@@ -55,7 +55,7 @@ const TokenDetail = () => {
       setLoading(true);
       try {
         const factory = getTokenFactory(readProvider);
-        const r = await factory.tokenRecords(address);
+        const r = await factory.getTokenRecord(address);
         if (r.token === ethers.ZeroAddress) {
           setNotFound(true);
           return;
@@ -72,11 +72,11 @@ const TokenDetail = () => {
           description: r.description,
           imageURI: r.imageURI,
           links: {
-            website: r.links?.website || r[9]?.[0] || "",
-            twitter: r.links?.twitter || r[9]?.[1] || "",
-            telegram: r.links?.telegram || r[9]?.[2] || "",
-            discord: r.links?.discord || r[9]?.[3] || "",
-            extra: r.links?.extra || r[9]?.[4] || "",
+            website: r.links?.website || r.links?.[0] || "",
+            twitter: r.links?.twitter || r.links?.[1] || "",
+            telegram: r.links?.telegram || r.links?.[2] || "",
+            discord: r.links?.discord || r.links?.[3] || "",
+            extra: r.links?.extra || r.links?.[4] || "",
           },
           createdAt: r.createdAt,
           graduated: r.graduated,
@@ -181,12 +181,24 @@ const TokenDetail = () => {
       })()
     : "";
 
+  // Resolve logo: on-chain imageURI > localStorage fallback > "?"
+  const resolvedLogo = (() => {
+    if (record?.imageURI) return record.imageURI;
+    if (address) {
+      try {
+        const stored = localStorage.getItem(`token-image-${address.toLowerCase()}`);
+        if (stored) return stored;
+      } catch {}
+    }
+    return "?";
+  })();
+
   // Build a Token-compatible object for AuraWrapper/StatusBadge
   const displayToken: Token = {
     id: address || "",
     name: record?.name || "",
     ticker: record?.symbol || "",
-    logo: record?.imageURI || "?",
+    logo: resolvedLogo,
     price,
     priceChange24h: 0,
     marketCap: price * 100_000_000_000,
@@ -353,9 +365,9 @@ const TokenDetail = () => {
               animate={{ opacity: 1, y: 0 }}
             >
               <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                {isImageUrl(record.imageURI) ? (
+                {isImageUrl(resolvedLogo) ? (
                   <motion.img
-                    src={record.imageURI}
+                    src={resolvedLogo}
                     alt={record.name}
                     className="w-16 h-16 rounded-xl object-cover"
                     animate={{ y: [0, -5, 0] }}
@@ -367,7 +379,7 @@ const TokenDetail = () => {
                     animate={{ y: [0, -5, 0] }}
                     transition={{ repeat: Infinity, duration: 2 }}
                   >
-                    {record.imageURI || "?"}
+                    {resolvedLogo}
                   </motion.span>
                 )}
                 <div className="flex-1">

@@ -56,7 +56,10 @@ const LaunchToken = () => {
     }
 
     try {
-      const imageURI = imagePreview || "";
+      // Don't pass the full base64 image to the contract — it's too large.
+      // Store image locally in localStorage, pass empty string on-chain.
+      // Will be replaced with R2 upload later.
+      const imageURI = "";
 
       const result = await createToken(
         {
@@ -77,6 +80,11 @@ const LaunchToken = () => {
         },
         initialBuyAmount
       );
+
+      // Save the image to localStorage keyed by the token address
+      if (result.tokenAddress && imagePreview) {
+        localStorage.setItem(`token-image-${result.tokenAddress.toLowerCase()}`, imagePreview);
+      }
 
       toast.success(`Token $${ticker} launched!`);
       if (result.tokenAddress) {

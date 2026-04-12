@@ -53,7 +53,7 @@ export function useTokenFactory() {
     try {
       setLoading(true);
       const factory = getTokenFactory(readProvider);
-      const count = await factory.tokenCount();
+      const count = await factory.getTokenCount();
       setTokenCount(Number(count));
 
       if (Number(count) === 0) {
@@ -67,7 +67,7 @@ export function useTokenFactory() {
       const allRecords: TokenRecord[] = [];
       for (let i = 0; i < Number(count); i += batchSize) {
         const limit = Math.min(batchSize, Number(count) - i);
-        const records = await factory.getTokenRecords(i, limit);
+        const records = await factory.getTokens(i, limit);
         allRecords.push(...records);
       }
 
@@ -202,7 +202,7 @@ export function useTokenFactory() {
     async (tokenAddress: string): Promise<TokenRecord | null> => {
       try {
         const factory = getTokenFactory(readProvider);
-        const record = await factory.tokenRecords(tokenAddress);
+        const record = await factory.getTokenRecord(tokenAddress);
         if (record.token === ethers.ZeroAddress) return null;
         return record;
       } catch {
@@ -217,11 +217,12 @@ export function useTokenFactory() {
     async (creator: string) => {
       try {
         const factory = getTokenFactory(readProvider);
-        const stats = await factory.creatorStats(creator);
+        // getCreatorStats returns (tokensCreated, tokensGraduated, arenaBattlesWon, tokenList)
+        const result = await factory.getCreatorStats(creator);
         return {
-          tokensCreated: Number(stats.tokensCreated),
-          tokensGraduated: Number(stats.tokensGraduated),
-          arenaBattlesWon: Number(stats.arenaBattlesWon),
+          tokensCreated: Number(result[0]),
+          tokensGraduated: Number(result[1]),
+          arenaBattlesWon: Number(result[2]),
         };
       } catch {
         return { tokensCreated: 0, tokensGraduated: 0, arenaBattlesWon: 0 };
@@ -235,12 +236,9 @@ export function useTokenFactory() {
     async (creator: string): Promise<string[]> => {
       try {
         const factory = getTokenFactory(readProvider);
-        const stats = await factory.creatorStats(creator);
-        const tokenList: string[] = [];
-        for (let i = 0; i < Number(stats.tokensCreated); i++) {
-          const addr = await factory.getCreatorToken(creator, i);
-          tokenList.push(addr);
-        }
+        // getCreatorStats returns (tokensCreated, tokensGraduated, arenaBattlesWon, tokenList)
+        const result = await factory.getCreatorStats(creator);
+        const tokenList: string[] = [...result[3]]; // 4th return value is address[]
         return tokenList;
       } catch {
         return [];

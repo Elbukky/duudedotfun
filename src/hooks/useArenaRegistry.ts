@@ -34,12 +34,19 @@ export function useArenaRegistry() {
       setLoading(true);
       const registry = getArenaRegistry(readProvider);
 
-      // Get current battle
-      const [startTime, endTime, resolved, winner] = await registry.getCurrentBattle();
+      // getCurrentBattle returns (battleId, startTime, endTime, participantCount, resolved, winner, winnerCreator)
+      const result = await registry.getCurrentBattle();
+      const battleId = result[0];
+      const startTime = result[1];
+      const endTime = result[2];
+      // result[3] is participantCount
+      const resolved = result[4];
+      const winner = result[5];
+      // result[6] is winnerCreator
+
       const battle: Battle = { startTime, endTime, resolved, winner };
 
-      const currentBattleId = await registry.currentBattleId();
-      const participants = await registry.getBattleParticipants(currentBattleId);
+      const participants = await registry.getBattleParticipants(battleId);
 
       const now = Math.floor(Date.now() / 1000);
       const timeRemaining = Math.max(0, Number(endTime) - now);
@@ -110,8 +117,8 @@ export function useArenaRegistry() {
         const registry = getArenaRegistry(readProvider);
         const record = await registry.getCreatorArenaRecord(creator);
         return {
-          totalWins: Number(record[0]),
-          battlesParticipated: Number(record[1]),
+          totalWins: Number(record.totalWins ?? record[0]),
+          battlesParticipated: Number(record.battlesParticipated ?? record[1]),
         };
       } catch {
         return { totalWins: 0, battlesParticipated: 0 };
