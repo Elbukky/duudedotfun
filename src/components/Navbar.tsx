@@ -1,19 +1,24 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Swords, Rocket, User, Menu, X, BookOpen } from "lucide-react";
+import { Flame, Swords, Rocket, User, Menu, X, BookOpen, LogOut } from "lucide-react";
 import { useState } from "react";
-
-const navItems = [
-  { path: "/", label: "Home", icon: Flame },
-  { path: "/arena", label: "Arena", icon: Swords },
-  { path: "/launch", label: "Launch", icon: Rocket },
-  { path: "/docs", label: "Docs", icon: BookOpen },
-  { path: "/creator/1", label: "Profile", icon: User },
-];
+import { useWeb3 } from "@/lib/web3Provider";
+import { shortAddress } from "@/lib/arcscan";
 
 const Navbar = () => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { address, isConnected, isConnecting, connect, disconnect } = useWeb3();
+
+  const navItems = [
+    { path: "/", label: "Home", icon: Flame },
+    { path: "/arena", label: "Arena", icon: Swords },
+    { path: "/launch", label: "Launch", icon: Rocket },
+    { path: "/docs", label: "Docs", icon: BookOpen },
+    ...(isConnected && address
+      ? [{ path: `/creator/${address}`, label: "Profile", icon: User }]
+      : []),
+  ];
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b-2 border-primary/20 bg-background/90 backdrop-blur-md">
@@ -52,13 +57,33 @@ const Navbar = () => {
               </Link>
             );
           })}
-          <motion.button
-            className="ml-3 font-display text-xs px-4 py-1.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none hover:brightness-110"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            Connect Wallet
-          </motion.button>
+
+          {isConnected ? (
+            <div className="ml-3 flex items-center gap-2">
+              <span className="font-body text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-xl border border-primary/20">
+                {shortAddress(address!)}
+              </span>
+              <motion.button
+                onClick={disconnect}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                title="Disconnect"
+              >
+                <LogOut size={14} />
+              </motion.button>
+            </div>
+          ) : (
+            <motion.button
+              onClick={connect}
+              disabled={isConnecting}
+              className="ml-3 font-display text-xs px-4 py-1.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none hover:brightness-110 disabled:opacity-50"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
+            </motion.button>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -82,9 +107,20 @@ const Navbar = () => {
               </div>
             </Link>
           ))}
-          <button className="w-full font-display text-xs px-4 py-2.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none">
-            Connect Wallet
-          </button>
+          {isConnected ? (
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="font-body text-xs text-muted-foreground">{shortAddress(address!)}</span>
+              <button onClick={disconnect} className="text-xs text-destructive font-body">Disconnect</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { connect(); setMobileOpen(false); }}
+              disabled={isConnecting}
+              className="w-full font-display text-xs px-4 py-2.5 rounded-xl bg-primary text-primary-foreground border-2 border-primary border-b-[4px] border-b-primary/60 active:border-b-2 active:translate-y-[2px] transition-all duration-100 shadow-[0_3px_0_hsl(var(--neon-purple)/0.5)] active:shadow-none disabled:opacity-50"
+            >
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
+            </button>
+          )}
         </motion.div>
       )}
     </nav>

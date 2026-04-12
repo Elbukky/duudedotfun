@@ -1,17 +1,91 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight } from "lucide-react";
+import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight, Loader2 } from "lucide-react";
 import mascot from "@/assets/mascot.png";
 import pepeAstronaut from "@/assets/pepe-astronaut.png";
 import TokenCard from "@/components/TokenCard";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
-import { mockTokens, mockCreators } from "@/lib/mockData";
+import { enrichedToToken } from "@/lib/mockData";
+import { useTokenFactory } from "@/hooks/useTokenFactory";
+import { useArenaRegistry } from "@/hooks/useArenaRegistry";
+import { shortAddress } from "@/lib/arcscan";
 import Navbar from "@/components/Navbar";
+import { ethers } from "ethers";
 
 const Index = () => {
-  const trending = [...mockTokens].sort((a, b) => b.hypeScore - a.hypeScore).slice(0, 4);
-  const arenaTop = [...mockTokens].sort((a, b) => b.priceChange24h - a.priceChange24h).slice(0, 3);
-  const recent = [...mockTokens].slice(-4);
+  const { enrichedTokens, loading, tokenCount } = useTokenFactory();
+  const { battleData } = useArenaRegistry();
+
+  // Convert to display tokens
+  const displayTokens = enrichedTokens.map((e, i) => enrichedToToken(e, i + 1));
+
+  // Trending: sorted by hypeScore descending
+  const trending = [...displayTokens].sort((a, b) => b.hypeScore - a.hypeScore).slice(0, 4);
+
+  // Arena top: use battle leaderboard if available, fallback to hype sorted
+  const arenaTokens = (() => {
+    if (battleData && battleData.leaderboard.length > 0) {
+      // Match leaderboard entries to display tokens
+      return battleData.leaderboard.slice(0, 3).map((entry, i) => {
+        const display = displayTokens.find(t => t.id.toLowerCase() === entry.token.toLowerCase());
+        if (display) return { ...display, arenaRank: i + 1 };
+        // Fallback: create minimal display from leaderboard data
+        return {
+          id: entry.token,
+          name: shortAddress(entry.token),
+          ticker: "???",
+          logo: "?",
+          price: 0,
+          priceChange24h: 0,
+          marketCap: 0,
+          volume24h: 0,
+          holders: Number(entry.metrics.holderCount),
+          hypeScore: Number(entry.score),
+          bondingProgress: Number(entry.metrics.percentCompleteBps) / 100,
+          category: "Degen",
+          creatorId: entry.creator,
+          creatorName: shortAddress(entry.creator),
+          lore: "",
+          launchedAt: "",
+          arenaRank: i + 1,
+          status: 'fighting' as const,
+        };
+      });
+    }
+    return [...displayTokens].sort((a, b) => b.hypeScore - a.hypeScore).slice(0, 3);
+  })();
+
+  // Recently launched: sorted by creation time descending
+  const recent = [...displayTokens].reverse().slice(0, 4);
+
+  // Top creators: aggregate from tokens
+  const creatorMap = new Map<string, { address: string; tokens: number; totalHype: number; graduated: number }>();
+  for (const e of enrichedTokens) {
+    const addr = e.record.creator;
+    const existing = creatorMap.get(addr.toLowerCase()) || { address: addr, tokens: 0, totalHype: 0, graduated: 0 };
+    existing.tokens++;
+    existing.totalHype += Number(enrichedToToken(e).hypeScore);
+    if (e.record.graduated) existing.graduated++;
+    creatorMap.set(addr.toLowerCase(), existing);
+  }
+  const topCreators = [...creatorMap.values()]
+    .sort((a, b) => b.totalHype - a.totalHype)
+    .slice(0, 5);
+
+  // Stats
+  const totalVolume = enrichedTokens.reduce((sum, e) => {
+    const buy = parseFloat(ethers.formatEther(e.totalBuyVolume));
+    const sell = parseFloat(ethers.formatEther(e.totalSellVolume));
+    return sum + buy + sell;
+  }, 0);
+  const totalHolders = enrichedTokens.reduce((sum, e) => sum + Number(e.holderCount), 0);
+  const battleCount = battleData ? Number(battleData.battle.endTime) > 0 ? 1 : 0 : 0;
+
+  const formatVolume = (v: number) => {
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
+    return `$${v.toFixed(0)}`;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,7 +120,7 @@ const Index = () => {
           />
         ))}
 
-        {/* Floating Pepe astronaut - right side middle (main blank area) */}
+        {/* Floating Pepe astronaut - right side middle */}
         <motion.img
           src={pepeAstronaut}
           alt="Pepe astronaut floating"
@@ -58,7 +132,7 @@ const Index = () => {
           animate={{ y: [0, -14, 0], rotate: [0, 5, -3, 0] }}
           transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
         />
-        {/* Floating Pepe astronaut - bottom left (below buttons) */}
+        {/* Floating Pepe astronaut - bottom left */}
         <motion.img
           src={pepeAstronaut}
           alt="Pepe astronaut floating"
@@ -175,10 +249,10 @@ const Index = () => {
       <section className="border-y-2 border-primary/20 py-4 bg-card/50">
         <div className="container flex flex-wrap justify-center gap-6 md:gap-12">
           {[
-            { icon: <Zap size={16} className="text-accent" />, label: "Tokens Launched", value: "2,847" },
-            { icon: <Users size={16} className="text-secondary" />, label: "Total Traders", value: "18.5K" },
-            { icon: <TrendingUp size={16} className="text-primary" />, label: "24h Volume", value: "$4.2M" },
-            { icon: <Swords size={16} className="text-destructive" />, label: "Arena Battles", value: "156" },
+            { icon: <Zap size={16} className="text-accent" />, label: "Tokens Launched", value: loading ? "..." : tokenCount.toLocaleString() },
+            { icon: <Users size={16} className="text-secondary" />, label: "Total Holders", value: loading ? "..." : totalHolders.toLocaleString() },
+            { icon: <TrendingUp size={16} className="text-primary" />, label: "Total Volume", value: loading ? "..." : formatVolume(totalVolume) },
+            { icon: <Swords size={16} className="text-destructive" />, label: "Arena Battles", value: battleCount.toString() },
           ].map(({ icon, label, value }) => (
             <div key={label} className="flex items-center gap-2 text-center">
               {icon}
@@ -202,11 +276,30 @@ const Index = () => {
               View all <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {trending.map((t, i) => (
-              <TokenCard key={t.id} token={t} index={i} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : trending.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {trending.map((t, i) => (
+                <TokenCard key={t.id} token={t} index={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground font-body mb-4">No tokens launched yet. Be the first!</p>
+              <Link to="/launch">
+                <motion.button
+                  className="btn-arcade bg-primary text-primary-foreground border-primary px-6 py-3 text-sm"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Rocket size={16} className="inline mr-2" /> LAUNCH FIRST TOKEN
+                </motion.button>
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -221,11 +314,21 @@ const Index = () => {
               Full leaderboard <ArrowRight size={14} />
             </Link>
           </div>
-          <div className="space-y-3">
-            {arenaTop.map((t, i) => (
-              <ArenaLeaderboardRow key={t.id} token={t} rank={i + 1} index={i} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+            </div>
+          ) : arenaTokens.length > 0 ? (
+            <div className="space-y-3">
+              {arenaTokens.map((t, i) => (
+                <ArenaLeaderboardRow key={t.id} token={t} rank={i + 1} index={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground font-body">No active arena battles yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -235,11 +338,21 @@ const Index = () => {
           <h2 className="text-2xl md:text-3xl font-display text-foreground mb-8">
             ✨ RECENTLY <span className="text-accent">LAUNCHED</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recent.map((t, i) => (
-              <TokenCard key={t.id} token={t} index={i} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            </div>
+          ) : recent.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {recent.map((t, i) => (
+                <TokenCard key={t.id} token={t} index={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground font-body">No tokens launched yet.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -249,30 +362,41 @@ const Index = () => {
           <h2 className="text-2xl md:text-3xl font-display text-foreground mb-8">
             👑 TOP <span className="text-primary">CREATORS</span>
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {mockCreators.map((c, i) => (
-              <Link key={c.id} to={`/creator/${c.id}`}>
-                <motion.div
-                  className="card-cartoon text-center cursor-pointer"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ y: -4 }}
-                >
-                  <motion.span className="text-4xl block mb-2" whileHover={{ scale: 1.2, rotate: 10 }}>
-                    {c.avatar}
-                  </motion.span>
-                  <h4 className="font-display text-xs text-foreground">{c.name}</h4>
-                  <p className="text-xs text-muted-foreground font-body">{c.launches} launches · {c.wins} wins</p>
-                  <div className="mt-2 flex justify-center gap-1 flex-wrap">
-                    {c.badges.slice(0, 2).map((b) => (
-                      <span key={b} className="badge-sticker text-[8px] bg-accent/10 text-accent border-accent/30">{b}</span>
-                    ))}
-                  </div>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
+          {topCreators.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {topCreators.map((c, i) => (
+                <Link key={c.address} to={`/creator/${c.address}`}>
+                  <motion.div
+                    className="card-cartoon text-center cursor-pointer"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    whileHover={{ y: -4 }}
+                  >
+                    <motion.span className="text-4xl block mb-2" whileHover={{ scale: 1.2, rotate: 10 }}>
+                      {i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🧑‍💻"}
+                    </motion.span>
+                    <h4 className="font-display text-xs text-foreground">{shortAddress(c.address)}</h4>
+                    <p className="text-xs text-muted-foreground font-body">
+                      {c.tokens} launch{c.tokens !== 1 ? "es" : ""} · {c.graduated} graduated
+                    </p>
+                    <div className="mt-2 flex justify-center gap-1 flex-wrap">
+                      {c.tokens >= 3 && (
+                        <span className="badge-sticker text-[8px] bg-accent/10 text-accent border-accent/30">Serial Launcher</span>
+                      )}
+                      {c.graduated >= 1 && (
+                        <span className="badge-sticker text-[8px] bg-secondary/10 text-secondary border-secondary/30">Graduate</span>
+                      )}
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          ) : !loading ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground font-body">No creators yet. Launch the first token!</p>
+            </div>
+          ) : null}
         </div>
       </section>
 

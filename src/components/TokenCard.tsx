@@ -4,6 +4,14 @@ import type { Token } from "@/lib/mockData";
 import StatusBadge from "./StatusBadge";
 import AuraWrapper from "./AuraWrapper";
 
+function TokenLogo({ logo, name, size = "text-4xl" }: { logo: string; name: string; size?: string }) {
+  if (logo.startsWith("data:") || logo.startsWith("http")) {
+    const sizeClass = size === "text-4xl" ? "w-10 h-10" : size === "text-5xl" ? "w-12 h-12" : "w-8 h-8";
+    return <img src={logo} alt={name} className={`${sizeClass} rounded-lg object-cover`} />;
+  }
+  return <span className={size}>{logo || "?"}</span>;
+}
+
 const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; rank?: number }) => {
   return (
     <AuraWrapper token={token} rank={rank}>
@@ -16,13 +24,12 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
-              <motion.span
-                className="text-4xl"
+              <motion.div
                 whileHover={{ rotate: [0, -10, 10, 0], scale: 1.2 }}
                 transition={{ duration: 0.4 }}
               >
-                {token.logo}
-              </motion.span>
+                <TokenLogo logo={token.logo} name={token.name} />
+              </motion.div>
               <div>
                 <h3 className="font-display text-sm text-foreground">{token.name}</h3>
                 <p className="text-xs text-muted-foreground font-body">${token.ticker}</p>
@@ -34,13 +41,7 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-body">
               <span className="text-muted-foreground">Price</span>
-              <span className="text-foreground">${token.price.toFixed(6)}</span>
-            </div>
-            <div className="flex justify-between text-xs font-body">
-              <span className="text-muted-foreground">24h</span>
-              <span className={token.priceChange24h >= 0 ? "text-secondary" : "text-destructive"}>
-                {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
-              </span>
+              <span className="text-foreground">${token.price < 0.000001 ? token.price.toExponential(2) : token.price.toFixed(6)}</span>
             </div>
             <div className="flex justify-between text-xs font-body">
               <span className="text-muted-foreground">Holders</span>
@@ -48,20 +49,26 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
             </div>
 
             {/* Bonding progress */}
-            <div className="pt-1">
-              <div className="flex justify-between text-xs font-body mb-1">
-                <span className="text-muted-foreground">Bonding</span>
-                <span className="text-primary">{token.bondingProgress}%</span>
+            {token.status !== 'graduated' ? (
+              <div className="pt-1">
+                <div className="flex justify-between text-xs font-body mb-1">
+                  <span className="text-muted-foreground">Bonding</span>
+                  <span className="text-primary">{token.bondingProgress.toFixed(1)}%</span>
+                </div>
+                <div className="progress-arcade">
+                  <motion.div
+                    className="progress-arcade-fill"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(token.bondingProgress, 100)}%` }}
+                    transition={{ duration: 1, delay: index * 0.1 }}
+                  />
+                </div>
               </div>
-              <div className="progress-arcade">
-                <motion.div
-                  className="progress-arcade-fill"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${token.bondingProgress}%` }}
-                  transition={{ duration: 1, delay: index * 0.1 }}
-                />
+            ) : (
+              <div className="pt-1">
+                <span className="badge-sticker text-[10px] bg-secondary/20 text-secondary border-secondary/40">ON DEX</span>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-3 flex items-center justify-between">

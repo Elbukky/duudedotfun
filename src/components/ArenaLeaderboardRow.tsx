@@ -18,7 +18,14 @@ const rankEmoji = (rank: number) => {
   return `#${rank}`;
 };
 
-const ArenaLeaderboardRow = ({ token, rank, index = 0 }: { token: Token; rank: number; index?: number }) => (
+function RowLogo({ logo, name }: { logo: string; name: string }) {
+  if (logo.startsWith("data:") || logo.startsWith("http")) {
+    return <img src={logo} alt={name} className="w-8 h-8 rounded-lg object-cover" />;
+  }
+  return <span className="text-3xl">{logo || "?"}</span>;
+}
+
+const ArenaLeaderboardRow = ({ token, rank, index = 0, score }: { token: Token; rank: number; index?: number; score?: string }) => (
   <AuraWrapper token={token} rank={rank}>
     <Link to={`/token/${token.id}`}>
       <motion.div
@@ -31,7 +38,7 @@ const ArenaLeaderboardRow = ({ token, rank, index = 0 }: { token: Token; rank: n
         <span className={`font-display w-10 text-center ${rankStyle(rank)}`}>
           {rankEmoji(rank)}
         </span>
-        <span className="text-3xl">{token.logo}</span>
+        <RowLogo logo={token.logo} name={token.name} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h4 className="font-display text-sm text-foreground truncate">{token.name}</h4>
@@ -40,14 +47,14 @@ const ArenaLeaderboardRow = ({ token, rank, index = 0 }: { token: Token; rank: n
           <p className="text-xs text-muted-foreground font-body">${token.ticker} · {token.holders} holders</p>
         </div>
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-body text-foreground">${token.price.toFixed(6)}</p>
-          <p className={`text-xs font-body ${token.priceChange24h >= 0 ? "text-secondary" : "text-destructive"}`}>
-            {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h.toFixed(1)}%
+          <p className="text-sm font-body text-foreground">${token.price < 0.000001 ? token.price.toExponential(2) : token.price.toFixed(6)}</p>
+          <p className="text-xs font-body text-muted-foreground">
+            {token.bondingProgress.toFixed(1)}% bonded
           </p>
         </div>
         <div className="text-right hidden md:block">
-          <p className="text-xs text-muted-foreground font-body">Hype</p>
-          <p className="text-sm font-display text-accent">{token.hypeScore}</p>
+          <p className="text-xs text-muted-foreground font-body">{score ? "Score" : "Hype"}</p>
+          <p className="text-sm font-display text-accent">{score || token.hypeScore}</p>
         </div>
       </motion.div>
     </Link>

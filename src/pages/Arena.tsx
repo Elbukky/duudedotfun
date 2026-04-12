@@ -1,22 +1,138 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import TokenCard from "@/components/TokenCard";
 import ChatBox from "@/components/ChatBox";
-import { mockTokens } from "@/lib/mockData";
+import { useArenaRegistry, type ArenaParticipantScore } from "@/hooks/useArenaRegistry";
+import { useTokenFactory } from "@/hooks/useTokenFactory";
+import { enrichedToToken, type Token } from "@/lib/mockData";
+import { shortAddress } from "@/lib/arcscan";
+import { ethers } from "ethers";
 
-const badges = [
-  { label: "🔥 Most Chaotic", token: "ChaosMonkey" },
-  { label: "📈 Fastest Growing", token: "GhostPepe" },
-  { label: "❤️ Community Fav", token: "PepeFighter" },
-];
+function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "Ended";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// Derive award badges from leaderboard metrics
+function getAwardBadges(leaderboard: ArenaParticipantScore[], tokenMap: Map<string, Token>) {
+  if (leaderboard.length === 0) return [];
+  const badges: { label: string; token: string }[] = [];
+
+  // Most chaotic: highest sell count (most volatile trading)
+  const mostChaotic = [...leaderboard].sort((a, b) =>
+    Number(b.metrics.sellCount + b.metrics.buyCount) - Number(a.metrics.sellCount + a.metrics.buyCount)
+  )[0];
+  if (mostChaotic) {
+    const name = tokenMap.get(mostChaotic.token.toLowerCase())?.name || shortAddress(mostChaotic.token);
+    badges.push({ label: "🔥 Most Chaotic", token: name });
+  }
+
+  // Fastest growing: highest unique buyers
+  const fastestGrowing = [...leaderboard].sort((a, b) =>
+    Number(b.metrics.uniqueBuyerCount) - Number(a.metrics.uniqueBuyerCount)
+  )[0];
+  if (fastestGrowing && fastestGrowing.token !== mostChaotic?.token) {
+    const name = tokenMap.get(fastestGrowing.token.toLowerCase())?.name || shortAddress(fastestGrowing.token);
+    badges.push({ label: "📈 Fastest Growing", token: name });
+  }
+
+  // Community fav: highest holder count
+  const communityFav = [...leaderboard].sort((a, b) =>
+    Number(b.metrics.holderCount) - Number(a.metrics.holderCount)
+  )[0];
+  if (communityFav && communityFav.token !== mostChaotic?.token && communityFav.token !== fastestGrowing?.token) {
+    const name = tokenMap.get(communityFav.token.toLowerCase())?.name || shortAddress(communityFav.token);
+    badges.push({ label: "❤️ Community Fav", token: name });
+  }
+
+  return badges;
+}
 
 const Arena = () => {
   const [view, setView] = useState<'list' | 'grid'>('list');
-  const sorted = [...mockTokens].sort((a, b) => b.hypeScore - a.hypeScore);
-  const top3 = sorted.slice(0, 3);
-  const rest = sorted.slice(3);
+  const { battleData, loading: arenaLoading } = useArenaRegistry();
+  const { enrichedTokens, loading: tokensLoading } = useTokenFactory();
+  const [countdown, setCountdown] = useState(0);
+
+  const loading = arenaLoading || tokensLoading;
+
+  // Build display token map from enriched tokens
+  const tokenMap = new Map<string, Token>();
+  for (const e of enrichedTokens) {
+    tokenMap.set(e.record.token.toLowerCase(), enrichedToToken(e));
+  }
+
+  // Countdown timer
+  useEffect(() => {
+    if (!battleData) return;
+    setCountdown(battleData.timeRemaining);
+    const interval = setInterval(() => {
+      setCountdown(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [battleData]);
+
+  // Build leaderboard display tokens
+  const leaderboardTokens: (Token & { arenaScore: string })[] = (battleData?.leaderboard || []).map((entry, i) => {
+    const display = tokenMap.get(entry.token.toLowerCase());
+    const baseToken: Token = display || {
+      id: entry.token,
+      name: shortAddress(entry.token),
+      ticker: "???",
+      logo: "?",
+      price: 0,
+      priceChange24h: 0,
+      marketCap: 0,
+      volume24h: parseFloat(ethers.formatEther(entry.metrics.totalBuyVolume + entry.metrics.totalSellVolume)),
+      holders: Number(entry.metrics.holderCount),
+      hypeScore: 0,
+      bondingProgress: Number(entry.metrics.percentCompleteBps) / 100,
+      category: "Degen",
+      creatorId: entry.creator,
+      creatorName: shortAddress(entry.creator),
+      lore: "",
+      launchedAt: "",
+      arenaRank: i + 1,
+      status: 'fighting',
+    };
+    return { ...baseToken, arenaRank: i + 1, arenaScore: entry.score.toString() };
+  });
+
+  // If no battle data, show all tokens sorted by hype as fallback
+  const fallbackTokens: Token[] = !battleData || leaderboardTokens.length === 0
+    ? enrichedTokens.map((e, i) => enrichedToToken(e, i + 1)).sort((a, b) => b.hypeScore - a.hypeScore)
+    : [];
+
+  const displayList = leaderboardTokens.length > 0 ? leaderboardTokens : fallbackTokens;
+  const top3 = displayList.slice(0, 3);
+  const rest = displayList.slice(3);
+
+  const badges = getAwardBadges(battleData?.leaderboard || [], tokenMap);
+  const participantCount = battleData?.participants.length || displayList.length;
+
+  // Podium logo helper
+  function PodiumLogo({ logo, name }: { logo: string; name: string }) {
+    if (logo.startsWith("data:") || logo.startsWith("http")) {
+      return <img src={logo} alt={name} className="w-12 h-12 rounded-lg object-cover mx-auto my-2" />;
+    }
+    return (
+      <motion.span
+        className="text-5xl block my-2"
+        animate={{ y: [0, -5, 0] }}
+        transition={{ repeat: Infinity, duration: 2 }}
+      >
+        {logo || "?"}
+      </motion.span>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -29,86 +145,120 @@ const Arena = () => {
             </h1>
             <p className="text-muted-foreground font-body">Tokens battle for glory. Only the strongest graduate.</p>
             <div className="flex justify-center gap-4 mt-4">
-              <span className="badge-sticker bg-accent/20 text-accent border-accent/40 text-xs">
-                ⏰ Battle ends in 4h 22m
-              </span>
+              {battleData?.isActive ? (
+                <span className="badge-sticker bg-accent/20 text-accent border-accent/40 text-xs">
+                  ⏰ Battle ends in {formatCountdown(countdown)}
+                </span>
+              ) : battleData && countdown <= 0 && Number(battleData.battle.endTime) > 0 ? (
+                <span className="badge-sticker bg-destructive/20 text-destructive border-destructive/40 text-xs">
+                  ⏰ Battle ended
+                </span>
+              ) : (
+                <span className="badge-sticker bg-muted/20 text-muted-foreground border-muted/40 text-xs">
+                  ⏰ No active battle
+                </span>
+              )}
               <span className="badge-sticker bg-secondary/20 text-secondary border-secondary/40 text-xs">
-                {mockTokens.length} fighters
+                {participantCount} fighter{participantCount !== 1 ? "s" : ""}
               </span>
             </div>
           </motion.div>
 
-          {/* Podium */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {top3.map((t, i) => {
-              const order = i === 0 ? "md:order-2" : i === 1 ? "md:order-1" : "md:order-3";
-              const scale = i === 0 ? "md:scale-105" : "";
-              return (
-                <motion.div
-                  key={t.id}
-                  className={`${order} ${scale}`}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.15 }}
-                >
-                  <div className={`card-cartoon text-center ${i === 0 ? "glow-gold border-accent/40" : ""}`}>
-                    <span className="font-display text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
-                    <motion.span
-                      className="text-5xl block my-2"
-                      animate={{ y: [0, -5, 0] }}
-                      transition={{ repeat: Infinity, duration: 2, delay: i * 0.3 }}
-                    >
-                      {t.logo}
-                    </motion.span>
-                    <h3 className="font-display text-sm text-foreground">{t.name}</h3>
-                    <p className="text-xs text-primary font-body">${t.ticker}</p>
-                    <p className={`text-lg font-display mt-1 ${t.priceChange24h >= 0 ? "text-secondary" : "text-destructive"}`}>
-                      {t.priceChange24h >= 0 ? "+" : ""}{t.priceChange24h.toFixed(1)}%
-                    </p>
-                    <p className="text-xs text-accent font-body mt-1">⚡ Hype: {t.hypeScore}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Award badges */}
-          <div className="flex flex-wrap justify-center gap-3 mb-8">
-            {badges.map((b, i) => (
-              <motion.div
-                key={b.label}
-                className="card-cartoon py-2 px-4 text-center"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 + i * 0.1 }}
-              >
-                <p className="font-display text-xs text-foreground">{b.label}</p>
-                <p className="text-xs text-muted-foreground font-body">{b.token}</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* View toggle */}
-          <div className="flex justify-end mb-4">
-            <div className="flex rounded-xl overflow-hidden border-2 border-primary/30">
-              <button onClick={() => setView('list')} className={`px-4 py-2 text-xs font-body ${view === 'list' ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}>List</button>
-              <button onClick={() => setView('grid')} className={`px-4 py-2 text-xs font-body ${view === 'grid' ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}>Grid</button>
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
             </div>
-          </div>
-
-          {/* Rankings */}
-          {view === 'list' ? (
-            <div className="space-y-3">
-              {rest.map((t, i) => (
-                <ArenaLeaderboardRow key={t.id} token={t} rank={i + 4} index={i} />
-              ))}
+          ) : displayList.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-xl font-display text-muted-foreground mb-4">No tokens in the arena yet</p>
+              <p className="text-muted-foreground font-body">Launch a token to be the first fighter!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {rest.map((t, i) => (
-                <TokenCard key={t.id} token={t} index={i} />
-              ))}
-            </div>
+            <>
+              {/* Podium */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {top3.map((t, i) => {
+                  const order = i === 0 ? "md:order-2" : i === 1 ? "md:order-1" : "md:order-3";
+                  const scale = i === 0 ? "md:scale-105" : "";
+                  return (
+                    <motion.div
+                      key={t.id}
+                      className={`${order} ${scale}`}
+                      initial={{ opacity: 0, y: 30 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.15 }}
+                    >
+                      <div className={`card-cartoon text-center ${i === 0 ? "glow-gold border-accent/40" : ""}`}>
+                        <span className="font-display text-2xl">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</span>
+                        <PodiumLogo logo={t.logo} name={t.name} />
+                        <h3 className="font-display text-sm text-foreground">{t.name}</h3>
+                        <p className="text-xs text-primary font-body">${t.ticker}</p>
+                        <p className="text-sm font-display mt-1 text-foreground">
+                          ${t.price < 0.000001 ? t.price.toExponential(2) : t.price.toFixed(6)}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-body mt-1">
+                          {t.holders} holder{t.holders !== 1 ? "s" : ""} · {t.bondingProgress.toFixed(1)}% bonded
+                        </p>
+                        <p className="text-xs text-accent font-body mt-1">
+                          ⚡ Score: {'arenaScore' in t ? (t as any).arenaScore : t.hypeScore}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Award badges */}
+              {badges.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-3 mb-8">
+                  {badges.map((b, i) => (
+                    <motion.div
+                      key={b.label}
+                      className="card-cartoon py-2 px-4 text-center"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.5 + i * 0.1 }}
+                    >
+                      <p className="font-display text-xs text-foreground">{b.label}</p>
+                      <p className="text-xs text-muted-foreground font-body">{b.token}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+
+              {/* View toggle */}
+              {rest.length > 0 && (
+                <>
+                  <div className="flex justify-end mb-4">
+                    <div className="flex rounded-xl overflow-hidden border-2 border-primary/30">
+                      <button onClick={() => setView('list')} className={`px-4 py-2 text-xs font-body ${view === 'list' ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}>List</button>
+                      <button onClick={() => setView('grid')} className={`px-4 py-2 text-xs font-body ${view === 'grid' ? "bg-primary/20 text-primary" : "text-muted-foreground"}`}>Grid</button>
+                    </div>
+                  </div>
+
+                  {/* Rankings */}
+                  {view === 'list' ? (
+                    <div className="space-y-3">
+                      {rest.map((t, i) => (
+                        <ArenaLeaderboardRow
+                          key={t.id}
+                          token={t}
+                          rank={i + 4}
+                          index={i}
+                          score={'arenaScore' in t ? (t as any).arenaScore : undefined}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {rest.map((t, i) => (
+                        <TokenCard key={t.id} token={t} index={i} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
 
           {/* Arena Chat */}

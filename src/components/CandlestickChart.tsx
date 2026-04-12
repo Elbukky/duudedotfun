@@ -1,50 +1,194 @@
 import { motion } from "framer-motion";
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { ethers } from "ethers";
+import { useWeb3 } from "@/lib/web3Provider";
+import { getBondingCurve } from "@/lib/contracts";
+
+interface TradePoint {
+  price: number;
+  type: "buy" | "sell";
+  blockNumber: number;
+}
 
 interface Candle {
-  time: string;
   open: number;
   high: number;
   low: number;
   close: number;
 }
 
-const generateMockCandles = (basePrice: number): Candle[] => {
-  const candles: Candle[] = [];
-  let price = basePrice * 0.6;
-  const hours = ["12AM","2AM","4AM","6AM","8AM","10AM","12PM","2PM","4PM","6PM","8PM","10PM","Now"];
-  
-  for (let i = 0; i < 24; i++) {
-    const open = price;
-    const change = (Math.random() - 0.45) * price * 0.15;
-    const close = Math.max(open + change, 0.000001);
-    const high = Math.max(open, close) * (1 + Math.random() * 0.05);
-    const low = Math.min(open, close) * (1 - Math.random() * 0.05);
-    candles.push({
-      time: hours[Math.floor(i / 2)] || "",
-      open,
-      high,
-      low,
-      close,
-    });
-    price = close;
+interface CandlestickChartProps {
+  curveAddress: string | null;
+  poolAddress?: string | null;
+  currentPrice: number;
+  graduated?: boolean;
+}
+
+const BUY_EVENT = "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)";
+const SELL_EVENT = "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)";
+
+const CandlestickChart = ({ curveAddress, currentPrice, graduated = false }: CandlestickChartProps) => {
+  const { readProvider } = useWeb3();
+  const [trades, setTrades] = useState<TradePoint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [timeframe, setTimeframe] = useState("ALL");
+
+  // Fetch trade events from the bonding curve contract
+  useEffect(() => {
+    if (!curveAddress) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchTrades = async () => {
+      setLoading(true);
+      try {
+        const iface = new ethers.Interface([BUY_EVENT, SELL_EVENT]);
+        const curve = getBondingCurve(curveAddress, readProvider);
+
+        // Query Buy and Sell events - use a wide block range
+        const currentBlock = await readProvider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 50000);
+
+        const [buyLogs, sellLogs] = await Promise.all([
+          curve.queryFilter(curve.filters.Buy(), fromBlock, currentBlock).catch(() => []),
+          curve.queryFilter(curve.filters.Sell(), fromBlock, currentBlock).catch(() => []),
+        ]);
+
+        const points: TradePoint[] = [];
+
+        for (const log of buyLogs) {
+          try {
+            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
+            if (parsed) {
+              const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
+              const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
+              if (tokensOut > 0) {
+                points.push({
+                  price: usdcIn / tokensOut,
+                  type: "buy",
+                  blockNumber: log.blockNumber,
+                });
+              }
+            }
+          } catch {}
+        }
+
+        for (const log of sellLogs) {
+          try {
+            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
+            if (parsed) {
+              const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
+              const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
+              if (tokensIn > 0) {
+                points.push({
+                  price: usdcOut / tokensIn,
+                  type: "sell",
+                  blockNumber: log.blockNumber,
+                });
+              }
+            }
+          } catch {}
+        }
+
+        // Sort by block number
+        points.sort((a, b) => a.blockNumber - b.blockNumber);
+        setTrades(points);
+      } catch (err) {
+        console.error("Failed to fetch trade data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrades();
+  }, [curveAddress, readProvider]);
+
+  // Build candles from trade points
+  const candles = useMemo(() => {
+    if (trades.length < 2) return [];
+
+    // Group trades into N candles (max 24)
+    const numCandles = Math.min(24, Math.max(4, Math.floor(trades.length / 2)));
+    const candleSize = Math.ceil(trades.length / numCandles);
+    const result: Candle[] = [];
+
+    for (let i = 0; i < trades.length; i += candleSize) {
+      const chunk = trades.slice(i, i + candleSize);
+      if (chunk.length === 0) continue;
+      const prices = chunk.map((t) => t.price);
+      result.push({
+        open: prices[0],
+        close: prices[prices.length - 1],
+        high: Math.max(...prices),
+        low: Math.min(...prices),
+      });
+    }
+
+    return result;
+  }, [trades]);
+
+  // Chart dimensions
+  const chartH = 160;
+
+  if (loading) {
+    return (
+      <div className="card-cartoon">
+        <h3 className="font-display text-sm text-foreground mb-3">PRICE CHART</h3>
+        <div className="flex items-center justify-center" style={{ height: chartH }}>
+          <p className="text-xs text-muted-foreground font-body animate-pulse">
+            Loading chart data...
+          </p>
+        </div>
+      </div>
+    );
   }
-  return candles;
-};
 
-const CandlestickChart = ({ basePrice }: { basePrice: number }) => {
-  const candles = useMemo(() => generateMockCandles(basePrice), [basePrice]);
+  // No trades - show current price
+  if (candles.length === 0) {
+    return (
+      <div className="card-cartoon">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display text-sm text-foreground">PRICE CHART</h3>
+          {graduated && (
+            <span className="text-[10px] font-body text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+              DEX
+            </span>
+          )}
+        </div>
+        <div
+          className="flex flex-col items-center justify-center bg-muted/30 rounded-xl"
+          style={{ height: chartH }}
+        >
+          <p className="font-display text-2xl text-foreground">
+            ${currentPrice < 0.01 ? currentPrice.toFixed(8) : currentPrice.toFixed(6)}
+          </p>
+          <p className="text-xs text-muted-foreground font-body mt-2">
+            {trades.length === 0
+              ? "No trades yet — be the first!"
+              : "Current spot price"}
+          </p>
+          {trades.length === 1 && (
+            <p className="text-xs text-muted-foreground font-body mt-1">
+              1 trade recorded
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
+  // Render candles
   const allPrices = candles.flatMap((c) => [c.high, c.low]);
   const minPrice = Math.min(...allPrices);
   const maxPrice = Math.max(...allPrices);
-  const range = maxPrice - minPrice || 1;
-
-  const chartW = 100; // percentage
-  const chartH = 160;
-  const candleW = chartW / candles.length;
+  const range = maxPrice - minPrice || minPrice * 0.01 || 0.000001;
 
   const yPos = (price: number) => chartH - ((price - minPrice) / range) * (chartH - 16) - 8;
+
+  const priceChange = candles.length > 0
+    ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
+    : 0;
 
   return (
     <motion.div
@@ -54,20 +198,36 @@ const CandlestickChart = ({ basePrice }: { basePrice: number }) => {
       transition={{ delay: 0.15 }}
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-display text-sm text-foreground">📈 PRICE CHART (24H)</h3>
-        <div className="flex gap-2">
-          {["1H", "4H", "24H"].map((t) => (
-            <span
-              key={t}
-              className={`text-xs font-body px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
-                t === "24H"
-                  ? "bg-primary/20 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t}
+        <div className="flex items-center gap-3">
+          <h3 className="font-display text-sm text-foreground">PRICE CHART</h3>
+          <span
+            className={`text-xs font-body ${priceChange >= 0 ? "text-secondary" : "text-destructive"}`}
+          >
+            {priceChange >= 0 ? "+" : ""}
+            {priceChange.toFixed(1)}%
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {graduated && (
+            <span className="text-[10px] font-body text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+              DEX
             </span>
-          ))}
+          )}
+          <div className="flex gap-1">
+            {["ALL"].map((t) => (
+              <span
+                key={t}
+                onClick={() => setTimeframe(t)}
+                className={`text-xs font-body px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
+                  t === timeframe
+                    ? "bg-primary/20 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -107,7 +267,6 @@ const CandlestickChart = ({ basePrice }: { basePrice: number }) => {
                 transition={{ delay: i * 0.02, duration: 0.3 }}
                 style={{ transformOrigin: `${x}px ${chartH / 2}px` }}
               >
-                {/* Wick */}
                 <line
                   x1={x}
                   y1={yPos(c.high)}
@@ -116,7 +275,6 @@ const CandlestickChart = ({ basePrice }: { basePrice: number }) => {
                   stroke={color}
                   strokeWidth={1.5}
                 />
-                {/* Body */}
                 <rect
                   x={x - 5}
                   y={bodyTop}
@@ -133,8 +291,12 @@ const CandlestickChart = ({ basePrice }: { basePrice: number }) => {
 
       {/* Price labels */}
       <div className="flex justify-between mt-2">
-        <span className="text-xs text-muted-foreground font-body">24h ago</span>
-        <span className="text-xs text-muted-foreground font-body">Now</span>
+        <span className="text-xs text-muted-foreground font-body">
+          {trades.length} trades
+        </span>
+        <span className="text-xs text-muted-foreground font-body">
+          ${currentPrice < 0.01 ? currentPrice.toFixed(8) : currentPrice.toFixed(6)}
+        </span>
       </div>
     </motion.div>
   );

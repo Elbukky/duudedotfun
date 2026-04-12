@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Web3Provider } from "@/lib/web3Provider";
 import Index from "./pages/Index.tsx";
 import LaunchToken from "./pages/LaunchToken.tsx";
 import TokenDetail from "./pages/TokenDetail.tsx";
@@ -15,21 +16,23 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/launch" element={<LaunchToken />} />
-          <Route path="/token/:id" element={<TokenDetail />} />
-          <Route path="/arena" element={<Arena />} />
-          <Route path="/docs" element={<Docs />} />
-          <Route path="/creator/:id" element={<CreatorProfile />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <Web3Provider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/launch" element={<LaunchToken />} />
+            <Route path="/token/:address" element={<TokenDetail />} />
+            <Route path="/arena" element={<Arena />} />
+            <Route path="/docs" element={<Docs />} />
+            <Route path="/creator/:address" element={<CreatorProfile />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </Web3Provider>
   </QueryClientProvider>
 );
 
