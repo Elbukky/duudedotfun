@@ -10,6 +10,7 @@ import { useArenaRegistry, type ArenaParticipantScore } from "@/hooks/useArenaRe
 import { useTokenFactory } from "@/hooks/useTokenFactory";
 import { enrichedToToken, type Token } from "@/lib/mockData";
 import { shortAddress } from "@/lib/arcscan";
+import { formatPriceNum } from "@/lib/contracts";
 import { ethers } from "ethers";
 
 function formatCountdown(seconds: number): string {
@@ -201,7 +202,7 @@ const Arena = () => {
                           <h3 className="font-display text-sm text-foreground">{t.name}</h3>
                           <p className="text-xs text-primary font-body">${t.ticker}</p>
                           <p className="text-sm font-display mt-1 text-foreground">
-                            ${t.price < 0.000001 ? t.price.toExponential(2) : t.price.toFixed(6)}
+                            {formatPriceNum(t.price)}
                           </p>
                           <p className="text-xs text-muted-foreground font-body mt-1">
                             {t.holders} holder{t.holders !== 1 ? "s" : ""} · {t.bondingProgress.toFixed(1)}% bonded

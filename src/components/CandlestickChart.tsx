@@ -259,10 +259,24 @@ const CandlestickChart = ({
   // Helper: format price for display
   const fmtPrice = (p: number) => {
     if (p === 0) return "$0";
-    if (p < 0.000001) return `$${p.toExponential(2)}`;
-    if (p < 0.01) return `$${p.toFixed(8)}`;
-    if (p < 1) return `$${p.toFixed(6)}`;
-    return `$${p.toFixed(4)}`;
+    if (p >= 1) return `$${p.toFixed(4)}`;
+    if (p >= 0.01) return `$${p.toFixed(6)}`;
+    if (p >= 0.000001) return `$${p.toFixed(8)}`;
+    // Subscript-zero notation for very small prices
+    const str = p.toFixed(20);
+    const afterDot = str.split(".")[1] || "";
+    let leadingZeros = 0;
+    for (const ch of afterDot) {
+      if (ch === "0") leadingZeros++;
+      else break;
+    }
+    const significant = afterDot.slice(leadingZeros, leadingZeros + 4);
+    const subscriptDigits = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089";
+    const subscript = String(leadingZeros)
+      .split("")
+      .map((d) => subscriptDigits[parseInt(d)])
+      .join("");
+    return `$0.0${subscript}${significant}`;
   };
 
   // Show loading ONLY on initial load when we have no data
@@ -357,8 +371,8 @@ const CandlestickChart = ({
   // Tight candle spacing — candles fill the entire width with small gaps
   const totalCandles = candles.length;
   const candleSpacing = CHART_WIDTH / totalCandles;
-  // Candle body takes 75% of slot width — close together but visible
-  const candleWidth = Math.max(4, Math.min(24, candleSpacing * 0.75));
+  // Candle body takes 80% of slot width; higher cap so few-candle charts aren't sparse
+  const candleWidth = Math.max(4, Math.min(60, candleSpacing * 0.8));
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;

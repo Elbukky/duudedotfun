@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /// @notice Bonding curves deposit protocol-only fees; post-migration pools
 ///         deposit 3-way split fees (protocol + creator; referrer share is
 ///         carved out of the creator portion inside this contract).
+///         Protocol fees are split 50/50 between two owners.
 contract FeeVault is Ownable {
     using SafeERC20 for IERC20;
 
@@ -24,6 +25,9 @@ contract FeeVault is Ownable {
 
     /* ── accounting ────────────────────────────────────────────────── */
     uint256 public totalAccountedUSDC;
+
+    /* ── dual-owner for protocol fee split ─────────────────────────── */
+    address public secondOwner;
 
     /* ── access control ────────────────────────────────────────────── */
     mapping(address => bool) public authorizedSources;   // curves & pools
@@ -45,6 +49,7 @@ contract FeeVault is Ownable {
     event SourceRevoked(address indexed source);
     event FactoryAuthorized(address indexed factory_);
     event FactoryRevoked(address indexed factory_);
+    event SecondOwnerSet(address indexed secondOwner_);
 
     /* ── modifiers ─────────────────────────────────────────────────── */
     modifier onlyAuthorized() {
@@ -60,12 +65,30 @@ contract FeeVault is Ownable {
         _;
     }
 
+    modifier onlyEitherOwner() {
+        require(
+            msg.sender == owner() || msg.sender == secondOwner,
+            "FeeVault: not an owner"
+        );
+        _;
+    }
+
     /* ── constructor ───────────────────────────────────────────────── */
     constructor() Ownable(msg.sender) {}
 
     /* ══════════════════════════════════════════════════════════════════
        ADMIN
     ══════════════════════════════════════════════════════════════════ */
+
+    /// @notice Set the second owner for 50/50 protocol fee split.
+    ///         Can only be called by the primary owner.
+    ///         Can be updated later if needed (e.g. to change the second owner).
+    function setSecondOwner(address secondOwner_) external onlyOwner {
+        require(secondOwner_ != address(0), "FeeVault: zero address");
+        require(secondOwner_ != owner(), "FeeVault: same as primary owner");
+        secondOwner = secondOwner_;
+        emit SecondOwnerSet(secondOwner_);
+    }
 
     function authorizeFactory(address factory_) external onlyOwner {
         authorizedFactories[factory_] = true;
@@ -129,13 +152,27 @@ contract FeeVault is Ownable {
        CLAIMS
     ══════════════════════════════════════════════════════════════════ */
 
-    function claimProtocolFees() external onlyOwner {
+    /// @notice Claim protocol fees. If secondOwner is set, splits 50/50.
+    ///         Either owner can trigger. Both owners receive their share.
+    function claimProtocolFees() external onlyEitherOwner {
         uint256 amount = protocolClaimable;
         require(amount > 0, "FeeVault: nothing to claim");
         protocolClaimable = 0;
         totalAccountedUSDC -= amount;
-        _sendNative(msg.sender, amount);
-        emit ProtocolFeesClaimed(msg.sender, amount);
+
+        if (secondOwner != address(0)) {
+            // 50/50 split — handle odd wei by giving remainder to primary
+            uint256 half = amount / 2;
+            uint256 remainder = amount - half;
+            _sendNative(secondOwner, half);
+            _sendNative(owner(), remainder);
+            emit ProtocolFeesClaimed(owner(), remainder);
+            emit ProtocolFeesClaimed(secondOwner, half);
+        } else {
+            // Single owner — all goes to primary
+            _sendNative(owner(), amount);
+            emit ProtocolFeesClaimed(owner(), amount);
+        }
     }
 
     function claimCreatorFees() external {

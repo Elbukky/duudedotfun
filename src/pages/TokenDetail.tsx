@@ -50,7 +50,7 @@ const TokenDetail = () => {
   const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
 
   // Top holders
-  const [topHolders, setTopHolders] = useState<{ address: string; balance: string; percentage: number; isDev: boolean }[]>([]);
+  const [topHolders, setTopHolders] = useState<{ address: string; balance: string; percentage: number; label: string }[]>([]);
 
   // Hooks (safe to call with null - they handle it internally)
   const curve = useBondingCurve(curveAddress);
@@ -202,11 +202,21 @@ const TokenDetail = () => {
       try {
         const raw = await fetchTokenHolders(address);
         const TOTAL_SUPPLY = 100_000_000_000; // 100B tokens
+        // Build known-address label map
+        const knownLabels: Record<string, string> = {};
+        knownLabels[record.creator.toLowerCase()] = "DEV";
+        if (record.curve) knownLabels[record.curve.toLowerCase()] = "CURVE";
+        if (record.vestingVault && record.vestingVault !== ethers.ZeroAddress)
+          knownLabels[record.vestingVault.toLowerCase()] = "VESTING";
+        if (record.migrationPool && record.migrationPool !== ethers.ZeroAddress)
+          knownLabels[record.migrationPool.toLowerCase()] = "POOL";
+
         const parsed = raw.slice(0, 10).map((h: any) => {
           const addr = h.address?.hash || h.address || "";
           // Arcscan returns value as string in smallest unit (18 decimals)
           const rawVal = h.value || "0";
           const bal = parseFloat(ethers.formatEther(rawVal));
+          const label = knownLabels[addr.toLowerCase()] || "";
           return {
             address: addr,
             balance: bal >= 1_000_000_000
@@ -217,7 +227,7 @@ const TokenDetail = () => {
                   ? `${(bal / 1_000).toFixed(2)}K`
                   : bal.toFixed(2),
             percentage: (bal / TOTAL_SUPPLY) * 100,
-            isDev: addr.toLowerCase() === record.creator.toLowerCase(),
+            label,
           };
         });
         setTopHolders(parsed);
@@ -885,9 +895,14 @@ const TokenDetail = () => {
                           >
                             {shortAddress(h.address)}
                           </a>
-                          {h.isDev && (
-                            <span className="text-[9px] font-body text-accent bg-accent/10 px-1 py-0.5 rounded shrink-0">
-                              DEV
+                          {h.label && (
+                            <span className={`text-[9px] font-body px-1 py-0.5 rounded shrink-0 ${
+                              h.label === "DEV" ? "text-accent bg-accent/10"
+                                : h.label === "POOL" ? "text-primary bg-primary/10"
+                                : h.label === "CURVE" ? "text-secondary bg-secondary/10"
+                                : "text-muted-foreground bg-muted/30"
+                            }`}>
+                              {h.label}
                             </span>
                           )}
                         </div>

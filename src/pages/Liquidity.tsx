@@ -7,7 +7,7 @@ import Navbar from "@/components/Navbar";
 import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { usePostMigrationPool, type PoolStats } from "@/hooks/usePostMigrationPool";
 import { useWeb3 } from "@/lib/web3Provider";
-import { formatUSDC, formatTokenAmount, getPostMigrationPool, getLaunchToken, type TokenRecord } from "@/lib/contracts";
+import { formatUSDC, formatTokenAmount, getPostMigrationPool, getLaunchToken, formatPriceNum, type TokenRecord } from "@/lib/contracts";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
 
@@ -83,13 +83,23 @@ function PoolCard({
   // Pool ratio: USDC per token
   const poolRatio = tokenReserveNum > 0 ? usdcReserveNum / tokenReserveNum : 0;
 
+  // Format a computed ratio amount without scientific notation
+  const formatRatioAmount = (n: number): string => {
+    if (n === 0) return "0";
+    if (n < 0.000001) return n.toFixed(18);
+    if (n < 1) return n.toFixed(8);
+    if (n >= 1_000_000) return Math.round(n).toString();
+    if (n >= 1) return n.toFixed(4);
+    return n.toString();
+  };
+
   // Auto-fill ratio when user enters one amount
   const handleTokenAmountChange = (val: string) => {
     setTokenAmount(val);
     setLastEdited("token");
     if (poolRatio > 0 && val && parseFloat(val) > 0) {
       const usdcNeeded = parseFloat(val) * poolRatio;
-      setUsdcAmount(usdcNeeded < 0.000001 ? usdcNeeded.toFixed(18) : usdcNeeded.toPrecision(8));
+      setUsdcAmount(formatRatioAmount(usdcNeeded));
     } else if (!val || parseFloat(val) === 0) {
       setUsdcAmount("");
     }
@@ -100,7 +110,7 @@ function PoolCard({
     setLastEdited("usdc");
     if (poolRatio > 0 && val && parseFloat(val) > 0) {
       const tokenNeeded = parseFloat(val) / poolRatio;
-      setTokenAmount(tokenNeeded < 0.000001 ? tokenNeeded.toFixed(18) : tokenNeeded.toPrecision(8));
+      setTokenAmount(formatRatioAmount(tokenNeeded));
     } else if (!val || parseFloat(val) === 0) {
       setTokenAmount("");
     }
@@ -189,7 +199,7 @@ function PoolCard({
         </div>
         <div className="text-right">
           <p className="font-display text-sm text-foreground">
-            ${spotPriceNum < 0.000001 ? spotPriceNum.toExponential(2) : spotPriceNum < 0.01 ? spotPriceNum.toFixed(8) : spotPriceNum.toFixed(6)}
+            {formatPriceNum(spotPriceNum)}
           </p>
           <p className="text-[10px] text-muted-foreground font-body">spot price</p>
         </div>

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { Token } from "@/lib/mockData";
+import { formatPriceNum } from "@/lib/contracts";
 import StatusBadge from "./StatusBadge";
 import AuraWrapper from "./AuraWrapper";
 
@@ -47,7 +48,7 @@ const ArenaLeaderboardRow = ({ token, rank, index = 0, score }: { token: Token; 
           <p className="text-xs text-muted-foreground font-body">${token.ticker} · {token.holders} holders</p>
         </div>
         <div className="text-right hidden sm:block">
-          <p className="text-sm font-body text-foreground">${token.price < 0.000001 ? token.price.toExponential(2) : token.price.toFixed(6)}</p>
+          <p className="text-sm font-body text-foreground">{formatPriceNum(token.price)}</p>
           <p className="text-xs font-body text-muted-foreground">
             {token.bondingProgress.toFixed(1)}% bonded
           </p>

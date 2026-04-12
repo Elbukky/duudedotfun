@@ -34,6 +34,11 @@ const CreatorProfile = () => {
   const [creatorFeeClaimable, setCreatorFeeClaimable] = useState<bigint>(0n);
   const [claimingFee, setClaimingFee] = useState(false);
 
+  // Protocol fee claim for FeeVault owners
+  const [protocolFeeClaimable, setProtocolFeeClaimable] = useState<bigint>(0n);
+  const [isProtocolOwner, setIsProtocolOwner] = useState(false);
+  const [claimingProtocolFee, setClaimingProtocolFee] = useState(false);
+
   // LP fee earnings for graduated tokens
   const [lpEarnings, setLpEarnings] = useState<{ record: TokenRecord; lpBalance: bigint; claimable: bigint }[]>([]);
 
@@ -201,6 +206,35 @@ const CreatorProfile = () => {
     return () => clearInterval(interval);
   }, [address, isOwnProfile, readProvider]);
 
+  // Check if connected wallet is a protocol fee owner (primary or second)
+  useEffect(() => {
+    if (!connectedAddress || !isOwnProfile) {
+      setIsProtocolOwner(false);
+      return;
+    }
+    const checkOwnership = async () => {
+      try {
+        const vault = getFeeVault(readProvider);
+        const [primaryOwner, second, pClaimable] = await Promise.all([
+          vault.owner().catch(() => ethers.ZeroAddress),
+          vault.secondOwner().catch(() => ethers.ZeroAddress),
+          vault.protocolClaimable().catch(() => 0n),
+        ]);
+        const isOwner =
+          connectedAddress.toLowerCase() === primaryOwner.toLowerCase() ||
+          (second !== ethers.ZeroAddress && connectedAddress.toLowerCase() === second.toLowerCase());
+        setIsProtocolOwner(isOwner);
+        setProtocolFeeClaimable(isOwner ? pClaimable : 0n);
+      } catch (err) {
+        console.error("Failed to check protocol ownership:", err);
+        setIsProtocolOwner(false);
+      }
+    };
+    checkOwnership();
+    const interval = setInterval(checkOwnership, 30000);
+    return () => clearInterval(interval);
+  }, [connectedAddress, isOwnProfile, readProvider]);
+
   // Fetch LP fee earnings for graduated tokens (only for connected user viewing own profile)
   useEffect(() => {
     if (!connectedAddress || !isOwnProfile || tokens.length === 0) {
@@ -324,6 +358,24 @@ const CreatorProfile = () => {
       toast.error(err.reason || err.message || "Claim failed");
     } finally {
       setClaimingFee(false);
+    }
+  };
+
+  const handleClaimProtocolFees = async () => {
+    try {
+      setClaimingProtocolFee(true);
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const s = await provider.getSigner();
+      const vault = getFeeVaultWrite(s);
+      toast.info("Claiming protocol fees (50/50 split)...");
+      const tx = await vault.claimProtocolFees();
+      await tx.wait();
+      toast.success("Protocol fees claimed!");
+      setProtocolFeeClaimable(0n);
+    } catch (err: any) {
+      toast.error(err.reason || err.message || "Claim failed");
+    } finally {
+      setClaimingProtocolFee(false);
     }
   };
 
@@ -762,6 +814,50 @@ const CreatorProfile = () => {
                           whileTap={{ scale: claimingFee ? 1 : 0.98 }}
                         >
                           {claimingFee ? "Claiming..." : "Claim"}
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              )}
+
+              {/* Protocol Fee Claims — only visible to FeeVault owners */}
+              {isOwnProfile && isProtocolOwner && protocolFeeClaimable > 0n && (
+                <div className="mt-8">
+                  <h2 className="font-display text-lg text-foreground mb-4">
+                    <Wallet size={18} className="inline mr-1 text-primary" />
+                    PROTOCOL <span className="text-primary">FEES</span>
+                  </h2>
+                  <div className="space-y-3">
+                    <motion.div
+                      className="card-cartoon"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-display text-sm text-foreground">Protocol Fees</p>
+                          <p className="text-[10px] text-muted-foreground font-body">
+                            50/50 split between owners on claim
+                          </p>
+                        </div>
+                        <span className="text-[9px] font-body text-primary bg-primary/10 px-1.5 py-0.5 rounded">OWNER</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs text-muted-foreground font-body block">Total Claimable</span>
+                          <span className="font-display text-xl text-primary">
+                            {formatUSDC(protocolFeeClaimable, 6)} USDC
+                          </span>
+                        </div>
+                        <motion.button
+                          onClick={handleClaimProtocolFees}
+                          disabled={claimingProtocolFee}
+                          className="btn-arcade py-2 px-4 text-xs bg-primary text-primary-foreground border-primary disabled:opacity-50"
+                          whileHover={{ scale: claimingProtocolFee ? 1 : 1.02 }}
+                          whileTap={{ scale: claimingProtocolFee ? 1 : 0.98 }}
+                        >
+                          {claimingProtocolFee ? "Claiming..." : "Claim"}
                         </motion.button>
                       </div>
                     </motion.div>

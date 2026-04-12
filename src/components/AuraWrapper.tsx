@@ -61,23 +61,18 @@ const AuraWrapper = memo(({ token, rank, children, className = "", enhanced = fa
         }}
       />
 
-      {/* Animated border overlay */}
+      {/* Animated border overlay — uses inset box-shadow (respects borderRadius) */}
       <motion.div
         className="absolute rounded-2xl pointer-events-none"
         style={{
           inset: 0,
           zIndex: 1,
-          border: `1.5px solid`,
-          borderImage: `linear-gradient(135deg, hsl(${color1} / ${opacity * 0.8}), hsl(${color2} / ${opacity * 0.4})) 1`,
-          borderRadius: "1rem",
-          borderImageSlice: 1,
         }}
-        // Use box-shadow for rounded border glow instead
         animate={{
           boxShadow: [
-            `inset 0 0 0 1px hsl(${color1} / ${opacity * 0.3})`,
-            `inset 0 0 0 1px hsl(${color2} / ${opacity * 0.5})`,
-            `inset 0 0 0 1px hsl(${color1} / ${opacity * 0.3})`,
+            `inset 0 0 0 1.5px hsl(${color1} / ${opacity * 0.3})`,
+            `inset 0 0 0 1.5px hsl(${color2} / ${opacity * 0.5})`,
+            `inset 0 0 0 1.5px hsl(${color1} / ${opacity * 0.3})`,
           ],
         }}
         transition={{ duration: duration * 1.5, repeat: Infinity, ease: "easeInOut" }}

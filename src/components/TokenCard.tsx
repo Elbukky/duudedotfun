@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { Token } from "@/lib/mockData";
+import { formatPriceNum } from "@/lib/contracts";
 import StatusBadge from "./StatusBadge";
 import AuraWrapper from "./AuraWrapper";
 
@@ -41,7 +42,7 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-body">
               <span className="text-muted-foreground">Price</span>
-              <span className="text-foreground">${token.price < 0.000001 ? token.price.toExponential(2) : token.price.toFixed(6)}</span>
+              <span className="text-foreground">{formatPriceNum(token.price)}</span>
             </div>
             <div className="flex justify-between text-xs font-body">
               <span className="text-muted-foreground">Holders</span>

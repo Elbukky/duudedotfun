@@ -82,13 +82,54 @@ export function formatTokenAmount(wei: bigint, decimals = 2): string {
   return num.toFixed(decimals);
 }
 
+/**
+ * Format a price for display. For very small prices (< 0.000001),
+ * uses the subscript-zero notation common on DEX UIs, e.g. "$0.0₅2393"
+ * meaning 5 zeros after the decimal then "2393".
+ */
 export function formatPrice(wei: bigint): string {
   const num = parseFloat(ethers.formatEther(wei));
   if (num === 0) return "$0";
-  if (num < 0.000001) return `$${num.toExponential(2)}`;
-  if (num < 0.01) return `$${num.toFixed(8)}`;
-  if (num < 1) return `$${num.toFixed(6)}`;
-  return `$${num.toFixed(4)}`;
+  if (num >= 1) return `$${num.toFixed(4)}`;
+  if (num >= 0.01) return `$${num.toFixed(6)}`;
+  if (num >= 0.000001) return `$${num.toFixed(8)}`;
+  // Very small price — use subscript-zero notation: $0.0₅2393
+  const str = num.toFixed(20);
+  const afterDot = str.split(".")[1] || "";
+  let leadingZeros = 0;
+  for (const ch of afterDot) {
+    if (ch === "0") leadingZeros++;
+    else break;
+  }
+  const significant = afterDot.slice(leadingZeros, leadingZeros + 4);
+  const subscriptDigits = "₀₁₂₃₄₅₆₇₈₉";
+  const subscript = String(leadingZeros)
+    .split("")
+    .map((d) => subscriptDigits[parseInt(d)])
+    .join("");
+  return `$0.0${subscript}${significant}`;
+}
+
+/** Format a plain number price (not wei) using the same logic as formatPrice */
+export function formatPriceNum(num: number): string {
+  if (num === 0) return "$0";
+  if (num >= 1) return `$${num.toFixed(4)}`;
+  if (num >= 0.01) return `$${num.toFixed(6)}`;
+  if (num >= 0.000001) return `$${num.toFixed(8)}`;
+  const str = num.toFixed(20);
+  const afterDot = str.split(".")[1] || "";
+  let leadingZeros = 0;
+  for (const ch of afterDot) {
+    if (ch === "0") leadingZeros++;
+    else break;
+  }
+  const significant = afterDot.slice(leadingZeros, leadingZeros + 4);
+  const subscriptDigits = "₀₁₂₃₄₅₆₇₈₉";
+  const subscript = String(leadingZeros)
+    .split("")
+    .map((d) => subscriptDigits[parseInt(d)])
+    .join("");
+  return `$0.0${subscript}${significant}`;
 }
 
 /** Format a plain number (not wei) with K/M/B abbreviations */

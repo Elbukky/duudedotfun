@@ -164,6 +164,19 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "secondOwner_",
+        "type": "address"
+      }
+    ],
+    "name": "SecondOwnerSet",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "source",
         "type": "address"
       }
@@ -483,6 +496,32 @@
       }
     ],
     "name": "revokeSource",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "secondOwner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "secondOwner_",
+        "type": "address"
+      }
+    ],
+    "name": "setSecondOwner",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
