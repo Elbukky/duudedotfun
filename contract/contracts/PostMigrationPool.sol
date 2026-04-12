@@ -57,8 +57,7 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
     mapping(address => uint256) public lpFeeDebt;      // per-user debt
     mapping(address => uint256) public lpFeeClaimable;  // pending claimable
 
-    /* ── init guard ────────────────────────────────────────────────── */
-    bool private _initialized;
+    /* ── init guard: handled by OZ Initializable (inherited via ERC20Upgradeable) ── */
 
     /* ══════════════════════════════════════════════════════════════════
        EVENTS
@@ -91,7 +90,7 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
        CONSTRUCTOR (disable implementation)
     ══════════════════════════════════════════════════════════════════ */
     constructor() {
-        _initialized = true;
+        _disableInitializers();
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -104,9 +103,7 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         address _referrer,
         uint256 _tokenAmount,
         uint256 _usdcAmount
-    ) external payable {
-        require(!_initialized, "Pool: already initialized");
-        _initialized = true;
+    ) external payable initializer {
         require(msg.value == _usdcAmount, "Pool: USDC mismatch");
         require(_tokenAmount > 0 && _usdcAmount > 0, "Pool: zero amount");
 

@@ -15,7 +15,7 @@ export interface PostMigrationFactory$Type {
   readonly deployedLinkReferences: {};
   readonly immutableReferences: {};
   readonly inputSourceName: "project/contracts/PostMigrationFactory.sol";
-  readonly buildInfoId: "solc-0_8_24-faeab627b5924d47227edd308545b6689ffe02d5";
+  readonly buildInfoId: "solc-0_8_24-09f59ff99871a1c50df726f3227da91cf885a75d";
 };
 
 import "hardhat/types/artifacts";

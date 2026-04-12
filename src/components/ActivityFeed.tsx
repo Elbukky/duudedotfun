@@ -1,8 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { ethers } from "ethers";
-import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve } from "@/lib/contracts";
 import { shortAddress, txLink } from "@/lib/arcscan";
 
 interface TradeActivity {
@@ -13,12 +11,33 @@ interface TradeActivity {
   tokens: string;
   txHash: string;
   blockNumber: number;
+  timestamp: number;
 }
 
-const BUY_EVENT =
-  "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)";
-const SELL_EVENT =
-  "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)";
+// Arcscan API
+const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
+
+// Event topic0 hashes
+const BUY_TOPIC = ethers.id("Buy(address,address,uint256,uint256,uint256)");
+const SELL_TOPIC = ethers.id("Sell(address,uint256,uint256,uint256)");
+
+// ABI fragments for decoding
+const EVENTS_ABI = [
+  "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)",
+  "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)",
+];
+
+/** Filter null entries from topics array (Arcscan pads with nulls) */
+function cleanTopics(topics: (string | null)[]): string[] {
+  return topics.filter((t): t is string => t != null);
+}
+
+function formatTokenCount(amount: number): string {
+  if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(2)}B`;
+  if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(2)}M`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(2)}K`;
+  return amount.toFixed(2);
+}
 
 interface ActivityFeedProps {
   curveAddress: string | null;
@@ -26,7 +45,6 @@ interface ActivityFeedProps {
 }
 
 const ActivityFeed = ({ curveAddress, tokenSymbol }: ActivityFeedProps) => {
-  const { readProvider } = useWeb3();
   const [activities, setActivities] = useState<TradeActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,68 +57,65 @@ const ActivityFeed = ({ curveAddress, tokenSymbol }: ActivityFeedProps) => {
     const fetchActivity = async () => {
       setLoading(true);
       try {
-        const iface = new ethers.Interface([BUY_EVENT, SELL_EVENT]);
-        const curve = getBondingCurve(curveAddress, readProvider);
-        const currentBlock = await readProvider.getBlockNumber();
-        const fromBlock = Math.max(0, currentBlock - 50000);
+        const iface = new ethers.Interface(EVENTS_ABI);
 
-        const [buyLogs, sellLogs] = await Promise.all([
-          curve.queryFilter(curve.filters.Buy(), fromBlock, currentBlock).catch(() => []),
-          curve.queryFilter(curve.filters.Sell(), fromBlock, currentBlock).catch(() => []),
-        ]);
+        // Fetch ALL logs from Arcscan (no topic filter — API returns 422 with topic0 param)
+        const res = await fetch(`${ARCSCAN_BASE}/addresses/${curveAddress}/logs`);
+        if (!res.ok) {
+          setActivities([]);
+          return;
+        }
+        const data = await res.json();
+        const allLogs = data.items || [];
 
         const items: TradeActivity[] = [];
 
-        for (const log of buyLogs) {
+        for (const log of allLogs) {
           try {
-            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-            if (parsed) {
-              const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
-              const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
-              items.push({
-                id: `buy-${log.transactionHash}-${log.index}`,
-                type: "buy",
-                user: parsed.args.buyer,
-                amount: usdcIn < 0.01 ? usdcIn.toFixed(6) : usdcIn.toFixed(2),
-                tokens:
-                  tokensOut >= 1_000_000_000
-                    ? `${(tokensOut / 1_000_000_000).toFixed(2)}B`
-                    : tokensOut >= 1_000_000
-                      ? `${(tokensOut / 1_000_000).toFixed(2)}M`
-                      : tokensOut >= 1_000
-                        ? `${(tokensOut / 1_000).toFixed(2)}K`
-                        : tokensOut.toFixed(2),
-                txHash: log.transactionHash,
-                blockNumber: log.blockNumber,
-              });
-            }
-          } catch {}
-        }
+            if (!log.topics || !log.topics[0]) continue;
+            const topic0 = log.topics[0].toLowerCase();
+            const topics = cleanTopics(log.topics);
 
-        for (const log of sellLogs) {
-          try {
-            const parsed = iface.parseLog({ topics: [...log.topics], data: log.data });
-            if (parsed) {
-              const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
-              const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
-              items.push({
-                id: `sell-${log.transactionHash}-${log.index}`,
-                type: "sell",
-                user: parsed.args.seller,
-                amount: usdcOut < 0.01 ? usdcOut.toFixed(6) : usdcOut.toFixed(2),
-                tokens:
-                  tokensIn >= 1_000_000_000
-                    ? `${(tokensIn / 1_000_000_000).toFixed(2)}B`
-                    : tokensIn >= 1_000_000
-                      ? `${(tokensIn / 1_000_000).toFixed(2)}M`
-                      : tokensIn >= 1_000
-                        ? `${(tokensIn / 1_000).toFixed(2)}K`
-                        : tokensIn.toFixed(2),
-                txHash: log.transactionHash,
-                blockNumber: log.blockNumber,
-              });
+            if (topic0 === BUY_TOPIC.toLowerCase()) {
+              const parsed = iface.parseLog({ topics, data: log.data });
+              if (parsed) {
+                const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
+                const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
+                items.push({
+                  id: `buy-${log.transaction_hash}-${log.index}`,
+                  type: "buy",
+                  user: parsed.args.buyer,
+                  amount: usdcIn < 0.01 ? usdcIn.toFixed(6) : usdcIn.toFixed(2),
+                  tokens: formatTokenCount(tokensOut),
+                  txHash: log.transaction_hash,
+                  blockNumber: log.block_number || 0,
+                  timestamp: log.block_timestamp
+                    ? new Date(log.block_timestamp).getTime() / 1000
+                    : 0,
+                });
+              }
+            } else if (topic0 === SELL_TOPIC.toLowerCase()) {
+              const parsed = iface.parseLog({ topics, data: log.data });
+              if (parsed) {
+                const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
+                const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
+                items.push({
+                  id: `sell-${log.transaction_hash}-${log.index}`,
+                  type: "sell",
+                  user: parsed.args.seller,
+                  amount: usdcOut < 0.01 ? usdcOut.toFixed(6) : usdcOut.toFixed(2),
+                  tokens: formatTokenCount(tokensIn),
+                  txHash: log.transaction_hash,
+                  blockNumber: log.block_number || 0,
+                  timestamp: log.block_timestamp
+                    ? new Date(log.block_timestamp).getTime() / 1000
+                    : 0,
+                });
+              }
             }
-          } catch {}
+          } catch {
+            // Skip unparseable logs
+          }
         }
 
         // Sort by block number descending (newest first)
@@ -116,7 +131,7 @@ const ActivityFeed = ({ curveAddress, tokenSymbol }: ActivityFeedProps) => {
     fetchActivity();
     const interval = setInterval(fetchActivity, 15000);
     return () => clearInterval(interval);
-  }, [curveAddress, readProvider]);
+  }, [curveAddress]);
 
   return (
     <div className="card-cartoon">

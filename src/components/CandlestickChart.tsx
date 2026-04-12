@@ -6,7 +6,7 @@ interface TradePoint {
   price: number;
   type: "buy" | "sell";
   blockNumber: number;
-  timestamp?: number;
+  timestamp: number;
 }
 
 interface Candle {
@@ -23,15 +23,15 @@ interface CandlestickChartProps {
   graduated?: boolean;
 }
 
-// Arcscan (Blockscout v2) API for fetching logs — more reliable than RPC eth_getLogs
+// Arcscan (Blockscout v2) API for fetching logs
 const ARCSCAN_BASE = "https://testnet.arcscan.app/api/v2";
 
-// Event signatures for topic0 matching
+// Event topic0 hashes
 const BUY_TOPIC = ethers.id("Buy(address,address,uint256,uint256,uint256)");
 const SELL_TOPIC = ethers.id("Sell(address,uint256,uint256,uint256)");
 const SWAP_TOPIC = ethers.id("Swap(address,address,uint256,uint256,uint256,uint256)");
 
-// ABIs for parsing
+// ABIs for decoding log data
 const BONDING_EVENTS = [
   "event Buy(address indexed buyer, address indexed recipient, uint256 usdcIn, uint256 tokensOut, uint256 fee)",
   "event Sell(address indexed seller, uint256 tokensIn, uint256 usdcOut, uint256 fee)",
@@ -40,20 +40,29 @@ const POOL_EVENTS = [
   "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
 ];
 
-async function fetchLogsFromArcscan(
-  contractAddress: string,
-  topic0?: string
-): Promise<any[]> {
+/**
+ * Fetch ALL logs for a contract address from Arcscan.
+ * The Arcscan API does NOT support ?topic0= filtering (returns 422),
+ * so we fetch everything and filter client-side.
+ */
+async function fetchAllLogs(contractAddress: string): Promise<any[]> {
   try {
-    let url = `${ARCSCAN_BASE}/addresses/${contractAddress}/logs`;
-    if (topic0) url += `?topic0=${topic0}`;
-    const res = await fetch(url);
-    if (!res.ok) return [];
+    const res = await fetch(`${ARCSCAN_BASE}/addresses/${contractAddress}/logs`);
+    if (!res.ok) {
+      console.warn(`Arcscan logs fetch failed: ${res.status} for ${contractAddress}`);
+      return [];
+    }
     const data = await res.json();
     return data.items || [];
-  } catch {
+  } catch (err) {
+    console.warn("Arcscan fetch error:", err);
     return [];
   }
+}
+
+/** Filter null entries from topics array (Arcscan pads with nulls) */
+function cleanTopics(topics: (string | null)[]): string[] {
+  return topics.filter((t): t is string => t != null);
 }
 
 const CandlestickChart = ({
@@ -76,104 +85,112 @@ const CandlestickChart = ({
         const bondingIface = new ethers.Interface(BONDING_EVENTS);
         const poolIface = new ethers.Interface(POOL_EVENTS);
 
-        // Fetch bonding curve Buy+Sell events (always, even after graduation for history)
+        // Fetch ALL bonding curve logs (always, even after graduation for history)
         if (curveAddress) {
-          const [buyLogs, sellLogs] = await Promise.all([
-            fetchLogsFromArcscan(curveAddress, BUY_TOPIC),
-            fetchLogsFromArcscan(curveAddress, SELL_TOPIC),
-          ]);
+          const allLogs = await fetchAllLogs(curveAddress);
 
-          for (const log of buyLogs) {
+          for (const log of allLogs) {
             try {
-              const parsed = bondingIface.parseLog({
-                topics: log.topics,
-                data: log.data,
-              });
-              if (parsed) {
-                const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
-                const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
-                if (tokensOut > 0) {
-                  points.push({
-                    price: usdcIn / tokensOut,
-                    type: "buy",
-                    blockNumber: log.block_number || 0,
-                    timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
-                  });
+              if (!log.topics || !log.topics[0]) continue;
+              const topic0 = log.topics[0].toLowerCase();
+              const topics = cleanTopics(log.topics);
+
+              if (topic0 === BUY_TOPIC.toLowerCase()) {
+                const parsed = bondingIface.parseLog({ topics, data: log.data });
+                if (parsed) {
+                  const usdcIn = parseFloat(ethers.formatEther(parsed.args.usdcIn));
+                  const tokensOut = parseFloat(ethers.formatEther(parsed.args.tokensOut));
+                  if (tokensOut > 0) {
+                    points.push({
+                      price: usdcIn / tokensOut,
+                      type: "buy",
+                      blockNumber: log.block_number || 0,
+                      timestamp: log.block_timestamp
+                        ? new Date(log.block_timestamp).getTime() / 1000
+                        : 0,
+                    });
+                  }
+                }
+              } else if (topic0 === SELL_TOPIC.toLowerCase()) {
+                const parsed = bondingIface.parseLog({ topics, data: log.data });
+                if (parsed) {
+                  const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
+                  const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
+                  if (tokensIn > 0) {
+                    points.push({
+                      price: usdcOut / tokensIn,
+                      type: "sell",
+                      blockNumber: log.block_number || 0,
+                      timestamp: log.block_timestamp
+                        ? new Date(log.block_timestamp).getTime() / 1000
+                        : 0,
+                    });
+                  }
                 }
               }
-            } catch {}
-          }
-
-          for (const log of sellLogs) {
-            try {
-              const parsed = bondingIface.parseLog({
-                topics: log.topics,
-                data: log.data,
-              });
-              if (parsed) {
-                const tokensIn = parseFloat(ethers.formatEther(parsed.args.tokensIn));
-                const usdcOut = parseFloat(ethers.formatEther(parsed.args.usdcOut));
-                if (tokensIn > 0) {
-                  points.push({
-                    price: usdcOut / tokensIn,
-                    type: "sell",
-                    blockNumber: log.block_number || 0,
-                    timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
-                  });
-                }
-              }
-            } catch {}
+              // Ignore other events (Graduated, etc.)
+            } catch {
+              // Skip unparseable logs
+            }
           }
         }
 
         // Fetch PostMigrationPool Swap events (after graduation)
         if (poolAddress && poolAddress !== ethers.ZeroAddress) {
-          const swapLogs = await fetchLogsFromArcscan(poolAddress, SWAP_TOPIC);
+          const allPoolLogs = await fetchAllLogs(poolAddress);
 
-          for (const log of swapLogs) {
+          for (const log of allPoolLogs) {
             try {
-              const parsed = poolIface.parseLog({
-                topics: log.topics,
-                data: log.data,
-              });
-              if (parsed) {
-                const tokenIn = parsed.args.tokenIn;
-                const usdcIn = parsed.args.usdcIn;
-                const tokenOut = parsed.args.tokenOut;
-                const usdcOut = parsed.args.usdcOut;
+              if (!log.topics || !log.topics[0]) continue;
+              const topic0 = log.topics[0].toLowerCase();
+              if (topic0 !== SWAP_TOPIC.toLowerCase()) continue;
 
-                // Buy tokens: usdcIn > 0, tokenOut > 0
-                if (usdcIn > 0n && tokenOut > 0n) {
-                  const usdcF = parseFloat(ethers.formatEther(usdcIn));
-                  const tokF = parseFloat(ethers.formatEther(tokenOut));
-                  if (tokF > 0) {
-                    points.push({
-                      price: usdcF / tokF,
-                      type: "buy",
-                      blockNumber: log.block_number || 0,
-                      timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
-                    });
-                  }
-                }
-                // Sell tokens: tokenIn > 0, usdcOut > 0
-                else if (tokenIn > 0n && usdcOut > 0n) {
-                  const tokF = parseFloat(ethers.formatEther(tokenIn));
-                  const usdcF = parseFloat(ethers.formatEther(usdcOut));
-                  if (tokF > 0) {
-                    points.push({
-                      price: usdcF / tokF,
-                      type: "sell",
-                      blockNumber: log.block_number || 0,
-                      timestamp: log.timestamp ? new Date(log.timestamp).getTime() / 1000 : undefined,
-                    });
-                  }
+              const topics = cleanTopics(log.topics);
+              const parsed = poolIface.parseLog({ topics, data: log.data });
+              if (!parsed) continue;
+
+              const tokenIn = parsed.args.tokenIn;
+              const usdcIn = parsed.args.usdcIn;
+              const tokenOut = parsed.args.tokenOut;
+              const usdcOut = parsed.args.usdcOut;
+
+              // Buy tokens: usdcIn > 0, tokenOut > 0
+              if (usdcIn > 0n && tokenOut > 0n) {
+                const usdcF = parseFloat(ethers.formatEther(usdcIn));
+                const tokF = parseFloat(ethers.formatEther(tokenOut));
+                if (tokF > 0) {
+                  points.push({
+                    price: usdcF / tokF,
+                    type: "buy",
+                    blockNumber: log.block_number || 0,
+                    timestamp: log.block_timestamp
+                      ? new Date(log.block_timestamp).getTime() / 1000
+                      : 0,
+                  });
                 }
               }
-            } catch {}
+              // Sell tokens: tokenIn > 0, usdcOut > 0
+              else if (tokenIn > 0n && usdcOut > 0n) {
+                const tokF = parseFloat(ethers.formatEther(tokenIn));
+                const usdcF = parseFloat(ethers.formatEther(usdcOut));
+                if (tokF > 0) {
+                  points.push({
+                    price: usdcF / tokF,
+                    type: "sell",
+                    blockNumber: log.block_number || 0,
+                    timestamp: log.block_timestamp
+                      ? new Date(log.block_timestamp).getTime() / 1000
+                      : 0,
+                  });
+                }
+              }
+            } catch {
+              // Skip unparseable logs
+            }
           }
         }
 
-        // Sort by block number (or timestamp if available)
+        // Sort by timestamp (primary) or block number (fallback)
         points.sort((a, b) => {
           if (a.timestamp && b.timestamp) return a.timestamp - b.timestamp;
           return a.blockNumber - b.blockNumber;

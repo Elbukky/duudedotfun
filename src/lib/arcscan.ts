@@ -116,11 +116,22 @@ export async function fetchContractLogs(
   topic0?: string
 ): Promise<any[]> {
   try {
-    const query = topic0 ? `?topic0=${topic0}` : "";
-    const res = await fetch(`${BASE_URL}/addresses/${address}/logs${query}`);
+    // Fetch ALL logs for the address — Arcscan doesn't support topic0 query param
+    const res = await fetch(`${BASE_URL}/addresses/${address}/logs`);
     if (!res.ok) return [];
     const data = await res.json();
-    return data.items || [];
+    const items = data.items || [];
+
+    // Filter client-side by topic0 if specified
+    if (topic0) {
+      return items.filter(
+        (log: any) =>
+          log.topics &&
+          log.topics[0] &&
+          log.topics[0].toLowerCase() === topic0.toLowerCase()
+      );
+    }
+    return items;
   } catch {
     return [];
   }
