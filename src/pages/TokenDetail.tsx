@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
-import { ArrowLeft, ExternalLink, Users, BarChart3, Clock, Copy, Check } from "lucide-react";
+import { ArrowLeft, ExternalLink, Users, BarChart3, Clock, Copy, Check, Droplets } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import HypeScoreWidget from "@/components/HypeScoreWidget";
 import MissionCard from "@/components/MissionCard";
@@ -14,7 +14,7 @@ import StatusBadge from "@/components/StatusBadge";
 import AuraWrapper from "@/components/AuraWrapper";
 import { useWeb3 } from "@/lib/web3Provider";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
-import { usePostMigrationPool } from "@/hooks/usePostMigrationPool";
+import { usePostMigrationPool, type PoolStats } from "@/hooks/usePostMigrationPool";
 import {
   getTokenFactory,
   formatUSDC,
@@ -46,6 +46,7 @@ const TokenDetail = () => {
   const [graduated, setGraduated] = useState(false);
   const [arenaMetrics, setArenaMetrics] = useState<ArenaMetrics | null>(null);
   const [postMigrationVolume, setPostMigrationVolume] = useState(0); // USDC volume from DEX swaps
+  const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
 
   // Hooks (safe to call with null - they handle it internally)
   const curve = useBondingCurve(curveAddress);
@@ -140,11 +141,20 @@ const TokenDetail = () => {
     if (!poolAddress || poolAddress === ethers.ZeroAddress) return;
 
     const fetchPoolData = async () => {
-      // Fetch pool spot price
+      // Fetch pool spot price + pool stats
       try {
-        const poolPrice = await pool.getSpotPrice();
-        if (poolPrice > 0n) setSpotPrice(poolPrice);
-      } catch {}
+        const stats = await pool.getPoolStats();
+        if (stats) {
+          setPoolStats(stats);
+          if (stats.spotPrice > 0n) setSpotPrice(stats.spotPrice);
+        }
+      } catch {
+        // Fallback: try just spotPrice
+        try {
+          const poolPrice = await pool.getSpotPrice();
+          if (poolPrice > 0n) setSpotPrice(poolPrice);
+        } catch {}
+      }
 
       // Fetch PostMigrationPool Swap events for volume
       try {
@@ -615,6 +625,61 @@ const TokenDetail = () => {
                     </span>
                     <span className="text-xs font-display text-secondary">
                       {(Number(arenaMetrics.buyPressureBps) / 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* DEX Liquidity Info — shown when graduated */}
+              {graduated && poolStats && (
+                <div className="card-cartoon">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Droplets size={14} className="text-primary" />
+                    <h3 className="font-display text-sm text-foreground">
+                      DEX LIQUIDITY
+                    </h3>
+                    <Link
+                      to="/liquidity"
+                      className="ml-auto text-[10px] font-body text-primary hover:underline flex items-center gap-1"
+                    >
+                      Manage <ExternalLink size={9} />
+                    </Link>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="bg-muted/30 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground font-body">Token Reserve</p>
+                      <p className="font-display text-sm text-foreground">
+                        {formatTokenAmount(poolStats.tokenReserve)}
+                      </p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground font-body">USDC Reserve</p>
+                      <p className="font-display text-sm text-foreground">
+                        {formatUSDC(poolStats.usdcReserve, 2)}
+                      </p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground font-body">Total LP Supply</p>
+                      <p className="font-display text-sm text-foreground">
+                        {parseFloat(ethers.formatEther(poolStats.totalLPSupply)) < 0.01
+                          ? parseFloat(ethers.formatEther(poolStats.totalLPSupply)).toExponential(2)
+                          : formatNumber(parseFloat(ethers.formatEther(poolStats.totalLPSupply)))}
+                      </p>
+                    </div>
+                    <div className="bg-muted/30 rounded-lg p-2 text-center">
+                      <p className="text-[10px] text-muted-foreground font-body">Spot Price</p>
+                      <p className="font-display text-sm text-foreground">
+                        {formatPrice(poolStats.spotPrice)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs font-body">
+                    <span className="text-muted-foreground">
+                      Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
+                      {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
+                    </span>
+                    <span className="text-muted-foreground">
+                      DEX Vol: ${formatNumber(postMigrationVolume)}
                     </span>
                   </div>
                 </div>

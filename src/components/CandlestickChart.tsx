@@ -67,13 +67,13 @@ function cleanTopics(topics: (string | null)[]): string[] {
   return topics.filter((t): t is string => t != null);
 }
 
-// Fixed viewBox dimensions
+// Fixed viewBox dimensions — compact layout
 const VB_WIDTH = 500;
 const VB_HEIGHT = 200;
-const PADDING_TOP = 20;
-const PADDING_BOTTOM = 24;
-const PADDING_LEFT = 10;
-const PADDING_RIGHT = 10;
+const PADDING_TOP = 16;
+const PADDING_BOTTOM = 16;
+const PADDING_LEFT = 4;
+const PADDING_RIGHT = 4;
 const CHART_WIDTH = VB_WIDTH - PADDING_LEFT - PADDING_RIGHT;
 const CHART_HEIGHT = VB_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
 
@@ -84,17 +84,20 @@ const CandlestickChart = ({
   graduated = false,
 }: CandlestickChartProps) => {
   const [trades, setTrades] = useState<TradePoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [timeframe, setTimeframe] = useState("ALL");
   const [hoveredCandle, setHoveredCandle] = useState<number | null>(null);
+  const fetchingRef = useRef(false);
 
-  // Fetch trade events from Arcscan API
+  // Fetch trade events from Arcscan API — background refresh, no loading screen
   useEffect(() => {
-    // Don't fetch until we have at least one contract address
     if (!curveAddress && !poolAddress) return;
 
     const fetchTrades = async () => {
-      setLoading(true);
+      // Prevent concurrent fetches
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+
       const points: TradePoint[] = [];
 
       try {
@@ -215,21 +218,25 @@ const CandlestickChart = ({
       } catch (err) {
         console.error("Failed to fetch trade data:", err);
       } finally {
-        setLoading(false);
+        // Only clear initial loading on first load
+        setInitialLoading(false);
+        fetchingRef.current = false;
       }
     };
 
     fetchTrades();
-    // Re-fetch every 30 seconds
-    const interval = setInterval(fetchTrades, 30000);
+    // Re-fetch every 15 seconds in background
+    const interval = setInterval(fetchTrades, 15000);
     return () => clearInterval(interval);
   }, [curveAddress, poolAddress]);
 
-  // Build candles from trade points
+  // Build candles from trade points — pack tightly
   const candles = useMemo(() => {
     if (trades.length === 0) return [];
-    const numCandles = Math.min(30, Math.max(1, Math.ceil(trades.length / 2)));
-    const candleSize = Math.ceil(trades.length / numCandles);
+    // More candles = tighter packed. Use up to 50 candles, minimum 2 trades per candle.
+    const maxCandles = 50;
+    const numCandles = Math.min(maxCandles, Math.max(1, trades.length));
+    const candleSize = Math.max(1, Math.ceil(trades.length / numCandles));
     const result: Candle[] = [];
 
     for (let i = 0; i < trades.length; i += candleSize) {
@@ -257,7 +264,8 @@ const CandlestickChart = ({
     return `$${p.toFixed(4)}`;
   };
 
-  if (loading) {
+  // Show loading ONLY on initial load when we have no data
+  if (initialLoading && trades.length === 0) {
     return (
       <div className="card-cartoon">
         <h3 className="font-display text-sm text-foreground mb-3">PRICE CHART</h3>
@@ -331,7 +339,7 @@ const CandlestickChart = ({
     );
   }
 
-  // Render candles with fixed viewBox
+  // Render candles with fixed viewBox — tight spacing
   const allPrices = candles.flatMap((c) => [c.high, c.low]);
   const minPrice = Math.min(...allPrices);
   const maxPrice = Math.max(...allPrices);
@@ -345,15 +353,16 @@ const CandlestickChart = ({
   const yPos = (price: number) =>
     PADDING_TOP + CHART_HEIGHT - ((price - rangeMin) / range) * CHART_HEIGHT;
 
-  // Calculate candle spacing within fixed viewBox
+  // Tight candle spacing — candles fill the entire width with minimal gaps
   const totalCandles = candles.length;
   const candleSpacing = CHART_WIDTH / totalCandles;
-  const candleWidth = Math.min(28, Math.max(8, candleSpacing * 0.85));
+  // Candle body takes up 92% of slot width — very tight, minimal gap
+  const candleWidth = Math.max(2, candleSpacing * 0.92);
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;
 
-  // Generate Y-axis price labels
+  // Generate Y-axis grid lines
   const yLabels = [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
     price: rangeMax - pct * range,
     y: PADDING_TOP + pct * CHART_HEIGHT,
@@ -369,7 +378,7 @@ const CandlestickChart = ({
       animate={{ opacity: 1 }}
       transition={{ delay: 0.15 }}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
           <h3 className="font-display text-sm text-foreground">PRICE CHART</h3>
           <span
@@ -405,17 +414,17 @@ const CandlestickChart = ({
 
       {/* Tooltip */}
       {hoveredInfo && (
-        <div className="flex items-center gap-4 mb-1 text-[10px] font-body text-muted-foreground">
+        <div className="flex items-center gap-3 mb-1 text-[10px] font-body text-muted-foreground flex-wrap">
           <span>O: {fmtPrice(hoveredInfo.open)}</span>
           <span>H: {fmtPrice(hoveredInfo.high)}</span>
           <span>L: {fmtPrice(hoveredInfo.low)}</span>
           <span>C: {fmtPrice(hoveredInfo.close)}</span>
-          <span className="text-secondary">{hoveredInfo.buyCount} buys</span>
-          <span className="text-destructive">{hoveredInfo.sellCount} sells</span>
+          <span className="text-secondary">{hoveredInfo.buyCount}B</span>
+          <span className="text-destructive">{hoveredInfo.sellCount}S</span>
         </div>
       )}
 
-      <div className="relative w-full" style={{ height: 200 }}>
+      <div className="relative w-full" style={{ height: 220 }}>
         <svg
           viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`}
           preserveAspectRatio="none"
@@ -430,13 +439,13 @@ const CandlestickChart = ({
                 x2={VB_WIDTH - PADDING_RIGHT}
                 y2={label.y}
                 stroke="hsl(var(--muted-foreground))"
-                strokeOpacity={0.1}
+                strokeOpacity={0.08}
                 strokeDasharray="4 4"
               />
             </g>
           ))}
 
-          {/* Candles */}
+          {/* Candles — tightly packed */}
           {candles.map((c, i) => {
             const isGreen = c.close >= c.open;
             const color = isGreen ? "hsl(var(--secondary))" : "hsl(var(--destructive))";
@@ -449,12 +458,8 @@ const CandlestickChart = ({
             const isHovered = hoveredCandle === i;
 
             return (
-              <motion.g
+              <g
                 key={i}
-                initial={{ opacity: 0, scaleY: 0 }}
-                animate={{ opacity: 1, scaleY: 1 }}
-                transition={{ delay: i * 0.015, duration: 0.3 }}
-                style={{ transformOrigin: `${x}px ${(wickTop + wickBot) / 2}px` }}
                 onMouseEnter={() => setHoveredCandle(i)}
                 onMouseLeave={() => setHoveredCandle(null)}
                 className="cursor-crosshair"
@@ -467,7 +472,7 @@ const CandlestickChart = ({
                     width={candleSpacing}
                     height={CHART_HEIGHT}
                     fill="hsl(var(--foreground))"
-                    fillOpacity={0.03}
+                    fillOpacity={0.04}
                   />
                 )}
 
@@ -478,7 +483,7 @@ const CandlestickChart = ({
                   x2={x}
                   y2={wickBot}
                   stroke={color}
-                  strokeWidth={1.5}
+                  strokeWidth={1}
                   strokeLinecap="round"
                 />
 
@@ -488,12 +493,12 @@ const CandlestickChart = ({
                   y={bodyTop}
                   width={candleWidth}
                   height={bodyH}
-                  rx={1}
+                  rx={0.5}
                   fill={color}
                   stroke={isHovered ? "hsl(var(--foreground))" : "none"}
                   strokeWidth={0.5}
                 />
-              </motion.g>
+              </g>
             );
           })}
 
@@ -524,11 +529,11 @@ const CandlestickChart = ({
         </svg>
       </div>
 
-      <div className="flex justify-between mt-2">
-        <span className="text-xs text-muted-foreground font-body">
+      <div className="flex justify-between mt-1">
+        <span className="text-[10px] text-muted-foreground font-body">
           {trades.length} trades · {candles.length} candles
         </span>
-        <span className="text-xs text-muted-foreground font-body">
+        <span className="text-[10px] text-muted-foreground font-body">
           {fmtPrice(currentPrice)}
         </span>
       </div>

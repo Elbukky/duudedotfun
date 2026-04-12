@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ethers } from "ethers";
 import { shortAddress, txLink } from "@/lib/arcscan";
 
@@ -44,6 +44,15 @@ function formatTokenCount(amount: number): string {
   return amount.toFixed(2);
 }
 
+function timeAgo(timestamp: number): string {
+  if (!timestamp) return "";
+  const diffSec = Math.floor(Date.now() / 1000 - timestamp);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
 interface ActivityFeedProps {
   curveAddress: string | null;
   poolAddress?: string | null;
@@ -52,16 +61,20 @@ interface ActivityFeedProps {
 
 const ActivityFeed = ({ curveAddress, poolAddress, tokenSymbol }: ActivityFeedProps) => {
   const [activities, setActivities] = useState<TradeActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const fetchingRef = useRef(false);
 
   useEffect(() => {
     if (!curveAddress && !poolAddress) {
-      setLoading(false);
+      setInitialLoading(false);
       return;
     }
 
     const fetchActivity = async () => {
-      setLoading(true);
+      // Prevent concurrent fetches
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+
       try {
         const bondingIface = new ethers.Interface(BONDING_ABI);
         const poolIface = new ethers.Interface(POOL_ABI);
@@ -197,20 +210,29 @@ const ActivityFeed = ({ curveAddress, poolAddress, tokenSymbol }: ActivityFeedPr
       } catch (err) {
         console.error("Failed to fetch activity:", err);
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
+        fetchingRef.current = false;
       }
     };
 
     fetchActivity();
+    // Background refresh every 15 seconds — no loading screen
     const interval = setInterval(fetchActivity, 15000);
     return () => clearInterval(interval);
   }, [curveAddress, poolAddress]);
 
   return (
     <div className="card-cartoon">
-      <h3 className="font-display text-sm text-foreground mb-4">LIVE ACTIVITY</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-sm text-foreground">LIVE ACTIVITY</h3>
+        {activities.length > 0 && (
+          <span className="text-[10px] text-muted-foreground font-body">
+            auto-updates every 15s
+          </span>
+        )}
+      </div>
 
-      {loading ? (
+      {initialLoading && activities.length === 0 ? (
         <p className="text-xs text-muted-foreground font-body animate-pulse py-4 text-center">
           Loading activity...
         </p>
@@ -219,19 +241,16 @@ const ActivityFeed = ({ curveAddress, poolAddress, tokenSymbol }: ActivityFeedPr
           No trades yet — be the first to buy!
         </p>
       ) : (
-        <div className="space-y-2 max-h-80 overflow-y-auto">
-          {activities.map((a, i) => (
-            <motion.a
+        <div className="space-y-1.5 max-h-80 overflow-y-auto">
+          {activities.map((a) => (
+            <a
               key={a.id}
               href={txLink(a.txHash)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
             >
-              <span>{a.type === "buy" ? "\uD83D\uDCC8" : "\uD83D\uDCC9"}</span>
+              <span className="text-sm">{a.type === "buy" ? "\uD83D\uDCC8" : "\uD83D\uDCC9"}</span>
               <div className="flex-1 min-w-0">
                 <p
                   className={`text-xs font-body truncate ${a.type === "buy" ? "text-secondary" : "text-destructive"}`}
@@ -246,11 +265,18 @@ const ActivityFeed = ({ curveAddress, poolAddress, tokenSymbol }: ActivityFeedPr
                     DEX
                   </span>
                 )}
-                <span className="text-[10px] text-muted-foreground font-body whitespace-nowrap">
-                  {a.amount} USDC
-                </span>
+                <div className="text-right">
+                  <span className="text-[10px] text-muted-foreground font-body whitespace-nowrap block">
+                    {a.amount} USDC
+                  </span>
+                  {a.timestamp > 0 && (
+                    <span className="text-[9px] text-muted-foreground/60 font-body whitespace-nowrap block">
+                      {timeAgo(a.timestamp)}
+                    </span>
+                  )}
+                </div>
               </div>
-            </motion.a>
+            </a>
           ))}
         </div>
       )}
