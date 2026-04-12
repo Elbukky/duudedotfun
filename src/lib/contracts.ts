@@ -60,6 +60,10 @@ export function getLaunchTokenWrite(address: string, signer: ethers.Signer) {
   return new ethers.Contract(address, LaunchTokenABI, signer);
 }
 
+export function getFeeVaultWrite(signer: ethers.Signer) {
+  return new ethers.Contract(ADDRESSES.FeeVault, FeeVaultABI, signer);
+}
+
 // Formatting helpers
 export function formatUSDC(wei: bigint, decimals = 4): string {
   const formatted = ethers.formatEther(wei);

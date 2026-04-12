@@ -26,6 +26,7 @@ import {
   type ArenaMetrics,
 } from "@/lib/contracts";
 import { shortAddress, addressLink, tokenLink } from "@/lib/arcscan";
+import { fetchTokenHolders } from "@/lib/arcscan";
 import type { Token, Mission } from "@/lib/mockData";
 import { resolveCreatorDisplayName } from "@/lib/mockData";
 
@@ -47,6 +48,9 @@ const TokenDetail = () => {
   const [arenaMetrics, setArenaMetrics] = useState<ArenaMetrics | null>(null);
   const [postMigrationVolume, setPostMigrationVolume] = useState(0); // USDC volume from DEX swaps
   const [poolStats, setPoolStats] = useState<PoolStats | null>(null);
+
+  // Top holders
+  const [topHolders, setTopHolders] = useState<{ address: string; balance: string; percentage: number; isDev: boolean }[]>([]);
 
   // Hooks (safe to call with null - they handle it internally)
   const curve = useBondingCurve(curveAddress);
@@ -190,6 +194,41 @@ const TokenDetail = () => {
     const interval = setInterval(fetchPoolData, 10000);
     return () => clearInterval(interval);
   }, [poolAddress, pool]);
+
+  // Fetch top holders from Arcscan
+  useEffect(() => {
+    if (!address || !record) return;
+    const fetchHolders = async () => {
+      try {
+        const raw = await fetchTokenHolders(address);
+        const TOTAL_SUPPLY = 100_000_000_000; // 100B tokens
+        const parsed = raw.slice(0, 10).map((h: any) => {
+          const addr = h.address?.hash || h.address || "";
+          // Arcscan returns value as string in smallest unit (18 decimals)
+          const rawVal = h.value || "0";
+          const bal = parseFloat(ethers.formatEther(rawVal));
+          return {
+            address: addr,
+            balance: bal >= 1_000_000_000
+              ? `${(bal / 1_000_000_000).toFixed(2)}B`
+              : bal >= 1_000_000
+                ? `${(bal / 1_000_000).toFixed(2)}M`
+                : bal >= 1_000
+                  ? `${(bal / 1_000).toFixed(2)}K`
+                  : bal.toFixed(2),
+            percentage: (bal / TOTAL_SUPPLY) * 100,
+            isDev: addr.toLowerCase() === record.creator.toLowerCase(),
+          };
+        });
+        setTopHolders(parsed);
+      } catch (err) {
+        console.error("Failed to fetch holders:", err);
+      }
+    };
+    fetchHolders();
+    const interval = setInterval(fetchHolders, 30000);
+    return () => clearInterval(interval);
+  }, [address, record]);
 
   // Derived display values
   const price = parseFloat(ethers.formatEther(spotPrice));
@@ -825,6 +864,52 @@ const TokenDetail = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Top Holders */}
+              {topHolders.length > 0 && (
+                <div className="card-cartoon">
+                  <h3 className="font-display text-xs text-muted-foreground mb-3">
+                    <Users size={12} className="inline mr-1" />
+                    TOP HOLDERS
+                  </h3>
+                  <div className="space-y-2">
+                    {topHolders.map((h, i) => (
+                      <div key={h.address} className="flex items-center justify-between text-xs font-body">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-muted-foreground w-4 text-right shrink-0">{i + 1}.</span>
+                          <a
+                            href={addressLink(h.address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-foreground hover:text-primary transition-colors truncate"
+                          >
+                            {shortAddress(h.address)}
+                          </a>
+                          {h.isDev && (
+                            <span className="text-[9px] font-body text-accent bg-accent/10 px-1 py-0.5 rounded shrink-0">
+                              DEV
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                          <span className="text-foreground">{h.balance}</span>
+                          <span className="text-muted-foreground ml-1">
+                            ({h.percentage < 0.01 ? "<0.01" : h.percentage.toFixed(2)}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <a
+                    href={tokenLink(address || "")}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 block text-center text-[10px] font-body text-primary hover:underline flex items-center justify-center gap-1"
+                  >
+                    View all on Explorer <ExternalLink size={9} />
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

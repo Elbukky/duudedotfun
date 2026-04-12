@@ -9,7 +9,7 @@ import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
-import { getBondingCurve, getPostMigrationPool, getLaunchToken, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
+import { getBondingCurve, getPostMigrationPool, getLaunchToken, getFeeVault, getFeeVaultWrite, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
 import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
@@ -29,6 +29,11 @@ const CreatorProfile = () => {
 
   // Vesting data for tokens that have vesting vaults
   const [vestingData, setVestingData] = useState<{ record: TokenRecord; info: VestingInfo }[]>([]);
+
+  // Creator fee claimable from FeeVault (post-graduation 0.1% creator fee)
+  const [creatorFeeClaimable, setCreatorFeeClaimable] = useState<bigint>(0n);
+  const [referrerFeeClaimable, setReferrerFeeClaimable] = useState<bigint>(0n);
+  const [claimingFee, setClaimingFee] = useState(false);
 
   // LP fee earnings for graduated tokens
   const [lpEarnings, setLpEarnings] = useState<{ record: TokenRecord; lpBalance: bigint; claimable: bigint }[]>([]);
@@ -177,6 +182,27 @@ const CreatorProfile = () => {
     fetchVesting();
   }, [tokens, connectedAddress, getVestingInfo]);
 
+  // Fetch creator fee & referrer fee claimable from FeeVault
+  useEffect(() => {
+    if (!address) return;
+    const fetchFees = async () => {
+      try {
+        const vault = getFeeVault(readProvider);
+        const [cFee, rFee] = await Promise.all([
+          vault.creatorClaimable(address).catch(() => 0n),
+          vault.referrerClaimable(address).catch(() => 0n),
+        ]);
+        setCreatorFeeClaimable(cFee);
+        setReferrerFeeClaimable(rFee);
+      } catch (err) {
+        console.error("Failed to fetch fee claimable:", err);
+      }
+    };
+    fetchFees();
+    const interval = setInterval(fetchFees, 30000);
+    return () => clearInterval(interval);
+  }, [address, readProvider]);
+
   // Fetch LP fee earnings for graduated tokens (only for connected user viewing own profile)
   useEffect(() => {
     if (!connectedAddress || !isOwnProfile || tokens.length === 0) {
@@ -282,6 +308,42 @@ const CreatorProfile = () => {
       }
     } catch (err: any) {
       toast.error(err.reason || err.message || "Claim failed");
+    }
+  };
+
+  const handleClaimCreatorFees = async () => {
+    try {
+      setClaimingFee(true);
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const s = await provider.getSigner();
+      const vault = getFeeVaultWrite(s);
+      toast.info("Claiming creator fees...");
+      const tx = await vault.claimCreatorFees();
+      await tx.wait();
+      toast.success("Creator fees claimed!");
+      setCreatorFeeClaimable(0n);
+    } catch (err: any) {
+      toast.error(err.reason || err.message || "Claim failed");
+    } finally {
+      setClaimingFee(false);
+    }
+  };
+
+  const handleClaimReferrerFees = async () => {
+    try {
+      setClaimingFee(true);
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+      const s = await provider.getSigner();
+      const vault = getFeeVaultWrite(s);
+      toast.info("Claiming referrer fees...");
+      const tx = await vault.claimReferrerFees();
+      await tx.wait();
+      toast.success("Referrer fees claimed!");
+      setReferrerFeeClaimable(0n);
+    } catch (err: any) {
+      toast.error(err.reason || err.message || "Claim failed");
+    } finally {
+      setClaimingFee(false);
     }
   };
 
@@ -680,6 +742,90 @@ const CreatorProfile = () => {
                   >
                     Manage all LP positions
                   </Link>
+                </div>
+              )}
+
+              {/* Creator & Referrer Fee Claims */}
+              {(creatorFeeClaimable > 0n || referrerFeeClaimable > 0n) && (
+                <div className="mt-8">
+                  <h2 className="font-display text-lg text-foreground mb-4">
+                    <Wallet size={18} className="inline mr-1 text-accent" />
+                    FEE <span className="text-accent">EARNINGS</span>
+                  </h2>
+                  <div className="space-y-3">
+                    {creatorFeeClaimable > 0n && (
+                      <motion.div
+                        className="card-cartoon"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-display text-sm text-foreground">Creator Fees</p>
+                            <p className="text-[10px] text-muted-foreground font-body">
+                              0.1% from post-graduation DEX trades
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-body text-secondary bg-secondary/10 px-1.5 py-0.5 rounded">DEX</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs text-muted-foreground font-body block">Claimable</span>
+                            <span className="font-display text-xl text-secondary">
+                              {formatUSDC(creatorFeeClaimable, 6)} USDC
+                            </span>
+                          </div>
+                          {isOwnProfile && (
+                            <motion.button
+                              onClick={handleClaimCreatorFees}
+                              disabled={claimingFee}
+                              className="btn-arcade py-2 px-4 text-xs bg-secondary text-secondary-foreground border-secondary disabled:opacity-50"
+                              whileHover={{ scale: claimingFee ? 1 : 1.02 }}
+                              whileTap={{ scale: claimingFee ? 1 : 0.98 }}
+                            >
+                              {claimingFee ? "Claiming..." : "Claim"}
+                            </motion.button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                    {referrerFeeClaimable > 0n && (
+                      <motion.div
+                        className="card-cartoon"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="font-display text-sm text-foreground">Referrer Fees</p>
+                            <p className="text-[10px] text-muted-foreground font-body">
+                              20% of creator fee share from referred tokens
+                            </p>
+                          </div>
+                          <span className="text-[9px] font-body text-primary bg-primary/10 px-1.5 py-0.5 rounded">REFERRAL</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-xs text-muted-foreground font-body block">Claimable</span>
+                            <span className="font-display text-xl text-primary">
+                              {formatUSDC(referrerFeeClaimable, 6)} USDC
+                            </span>
+                          </div>
+                          {isOwnProfile && (
+                            <motion.button
+                              onClick={handleClaimReferrerFees}
+                              disabled={claimingFee}
+                              className="btn-arcade py-2 px-4 text-xs bg-primary text-primary-foreground border-primary disabled:opacity-50"
+                              whileHover={{ scale: claimingFee ? 1 : 1.02 }}
+                              whileTap={{ scale: claimingFee ? 1 : 0.98 }}
+                            >
+                              {claimingFee ? "Claiming..." : "Claim"}
+                            </motion.button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               )}
 
