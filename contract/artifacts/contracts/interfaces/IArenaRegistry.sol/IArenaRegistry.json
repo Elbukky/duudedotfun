@@ -1,0 +1,180 @@
+{
+  "_format": "hh3-artifact-1",
+  "contractName": "IArenaRegistry",
+  "sourceName": "contracts/interfaces/IArenaRegistry.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "curve",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
+        }
+      ],
+      "name": "enterBattle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "battleId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getBattleLeaderboard",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "score",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IArenaRegistry.LeaderboardEntry[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
+        }
+      ],
+      "name": "getCreatorArenaRecord",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "totalWins",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "battlesParticipated",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IArenaRegistry.CreatorRecord",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getCurrentBattle",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "battleId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "startTime",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "endTime",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address[]",
+              "name": "participants",
+              "type": "address[]"
+            },
+            {
+              "internalType": "bool",
+              "name": "resolved",
+              "type": "bool"
+            },
+            {
+              "internalType": "address",
+              "name": "winner",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "winnerCreator",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct IArenaRegistry.BattleInfo",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "onGraduation",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "battleId",
+          "type": "uint256"
+        }
+      ],
+      "name": "resolveBattle",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {},
+  "immutableReferences": {},
+  "inputSourceName": "project/contracts/interfaces/IArenaRegistry.sol",
+  "buildInfoId": "solc-0_8_24-faeab627b5924d47227edd308545b6689ffe02d5"
+}
