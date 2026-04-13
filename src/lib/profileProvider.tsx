@@ -145,6 +145,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
 
         setProfileCache((prev) => ({ ...prev, ...newCache }));
 
+        // Sync to global bridge so enrichedToToken/resolveCreatorDisplayName picks them up
+        for (const [addr, profile] of Object.entries(newCache)) {
+          const displayName = profile.displayName || profile.username;
+          if (displayName) syncProfileName(addr, displayName);
+        }
+
         // Return combined result
         const result: Record<string, UserProfile> = { ...newCache };
         for (const a of addresses) {

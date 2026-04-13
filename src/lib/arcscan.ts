@@ -140,7 +140,7 @@ export async function fetchContractLogs(
 // Format address for display
 export function shortAddress(addr: string): string {
   if (!addr) return "";
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return `${addr.slice(0, 4)}...${addr.slice(-3)}`;
 }
 
 // Explorer link helpers

@@ -556,7 +556,7 @@ const CreatorProfile = () => {
                   </div>
                 )}
                 <div className="flex items-center justify-center gap-2 mt-1">
-                  <p className="text-xs text-muted-foreground font-body font-mono">{address}</p>
+                  <p className="text-xs text-muted-foreground font-body font-mono">{shortAddress(address!)}</p>
                   <button onClick={copyAddress} className="text-muted-foreground hover:text-foreground">
                     {copied ? <Check size={12} className="text-secondary" /> : <Copy size={12} />}
                   </button>

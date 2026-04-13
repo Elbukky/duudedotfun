@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useLayoutEffect } from "react";
 import { ethers } from "ethers";
 
 interface TradePoint {
@@ -67,15 +67,20 @@ function cleanTopics(topics: (string | null)[]): string[] {
   return topics.filter((t): t is string => t != null);
 }
 
-// Fixed viewBox dimensions — compact layout
-const VB_WIDTH = 500;
+// Chart layout constants
 const VB_HEIGHT = 200;
+const MIN_VB_WIDTH = 500;
 const PADDING_TOP = 16;
 const PADDING_BOTTOM = 16;
 const PADDING_LEFT = 4;
 const PADDING_RIGHT = 4;
-const CHART_WIDTH = VB_WIDTH - PADDING_LEFT - PADDING_RIGHT;
 const CHART_HEIGHT = VB_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
+
+// Candle geometry — thin like real trading charts
+const CANDLE_SLOT = 8; // VB units per candle slot
+const MAX_CANDLES = 200;
+const BODY_WIDTH = Math.min(Math.max(2, CANDLE_SLOT * 0.65), 6); // ~5.2, capped at 6
+const WICK_WIDTH = 1.5;
 
 const CandlestickChart = ({
   curveAddress,
@@ -88,6 +93,8 @@ const CandlestickChart = ({
   const [timeframe, setTimeframe] = useState("ALL");
   const [hoveredCandle, setHoveredCandle] = useState<number | null>(null);
   const fetchingRef = useRef(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevCandleCountRef = useRef(0);
 
   // Fetch trade events from Arcscan API — background refresh, no loading screen
   useEffect(() => {
@@ -230,31 +237,47 @@ const CandlestickChart = ({
     return () => clearInterval(interval);
   }, [curveAddress, poolAddress]);
 
-  // Build candles from trade points — tight packing, proper thickness
+  // Build candles: 1 trade per candle (grouped if > MAX_CANDLES trades)
+  // Candle continuity: each candle's open = previous candle's close
   const candles = useMemo(() => {
     if (trades.length === 0) return [];
-    // Target ~20-30 candles so each has multiple trades and real OHLC range.
-    // With few trades, use fewer candles to ensure each has at least 2 trades.
-    const maxCandles = 30;
-    const numCandles = Math.min(maxCandles, Math.max(1, Math.ceil(trades.length / 2)));
-    const candleSize = Math.max(1, Math.ceil(trades.length / numCandles));
+
+    const numCandles = Math.min(MAX_CANDLES, trades.length);
+    const groupSize = Math.max(1, Math.ceil(trades.length / numCandles));
     const result: Candle[] = [];
 
-    for (let i = 0; i < trades.length; i += candleSize) {
-      const chunk = trades.slice(i, i + candleSize);
+    for (let i = 0; i < trades.length; i += groupSize) {
+      const chunk = trades.slice(i, i + groupSize);
       if (chunk.length === 0) continue;
+
       const prices = chunk.map((t) => t.price);
+      const prevClose = result.length > 0 ? result[result.length - 1].close : prices[0];
+
+      // open = previous candle's close (continuity), close = last price in chunk
+      const open = prevClose;
+      const close = prices[prices.length - 1];
+
       result.push({
-        open: prices[0],
-        close: prices[prices.length - 1],
-        high: Math.max(...prices),
-        low: Math.min(...prices),
+        open,
+        close,
+        high: Math.max(open, close, ...prices),
+        low: Math.min(open, close, ...prices),
         buyCount: chunk.filter((t) => t.type === "buy").length,
         sellCount: chunk.filter((t) => t.type === "sell").length,
       });
     }
     return result;
   }, [trades]);
+
+  // Auto-scroll to the right (most recent candles) when candle count changes
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (candles.length > 0 && candles.length !== prevCandleCountRef.current) {
+      container.scrollLeft = container.scrollWidth;
+      prevCandleCountRef.current = candles.length;
+    }
+  }, [candles]);
 
   // Helper: format price for display
   const fmtPrice = (p: number) => {
@@ -307,7 +330,7 @@ const CandlestickChart = ({
         </div>
         <div className="relative w-full" style={{ height: 200 }}>
           <svg
-            viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`}
+            viewBox={`0 0 ${MIN_VB_WIDTH} ${VB_HEIGHT}`}
             className="w-full h-full"
           >
             {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
@@ -315,7 +338,7 @@ const CandlestickChart = ({
                 key={pct}
                 x1={PADDING_LEFT}
                 y1={PADDING_TOP + pct * CHART_HEIGHT}
-                x2={VB_WIDTH - PADDING_RIGHT}
+                x2={MIN_VB_WIDTH - PADDING_RIGHT}
                 y2={PADDING_TOP + pct * CHART_HEIGHT}
                 stroke="hsl(var(--muted-foreground))"
                 strokeOpacity={0.08}
@@ -325,7 +348,7 @@ const CandlestickChart = ({
             <line
               x1={PADDING_LEFT + 20}
               y1={PADDING_TOP + CHART_HEIGHT / 2}
-              x2={VB_WIDTH - PADDING_RIGHT - 20}
+              x2={MIN_VB_WIDTH - PADDING_RIGHT - 20}
               y2={PADDING_TOP + CHART_HEIGHT / 2}
               stroke="hsl(var(--secondary))"
               strokeWidth={2}
@@ -333,7 +356,7 @@ const CandlestickChart = ({
               strokeOpacity={0.6}
             />
             <circle
-              cx={VB_WIDTH - PADDING_RIGHT - 20}
+              cx={MIN_VB_WIDTH - PADDING_RIGHT - 20}
               cy={PADDING_TOP + CHART_HEIGHT / 2}
               r={4}
               fill="hsl(var(--secondary))"
@@ -354,37 +377,39 @@ const CandlestickChart = ({
     );
   }
 
-  // Render candles with fixed viewBox — tight spacing
+  // Compute dynamic viewBox width based on candle count
+  const totalCandles = candles.length;
+  const neededWidth = PADDING_LEFT + PADDING_RIGHT + totalCandles * CANDLE_SLOT + CANDLE_SLOT;
+  const vbWidth = Math.max(MIN_VB_WIDTH, neededWidth);
+  const chartWidth = vbWidth - PADDING_LEFT - PADDING_RIGHT;
+
+  // Price range
   const allPrices = candles.flatMap((c) => [c.high, c.low]);
   const minPrice = Math.min(...allPrices);
   const maxPrice = Math.max(...allPrices);
-  // Add 5% padding to price range so candles don't touch edges
   const pricePad = (maxPrice - minPrice) * 0.05 || minPrice * 0.01 || 0.000001;
   const rangeMin = minPrice - pricePad;
   const rangeMax = maxPrice + pricePad;
   const range = rangeMax - rangeMin;
 
-  // Map price to Y coordinate within the chart area
+  // Map price to Y coordinate
   const yPos = (price: number) =>
     PADDING_TOP + CHART_HEIGHT - ((price - rangeMin) / range) * CHART_HEIGHT;
-
-  // Tight candle spacing — candles fill the entire width with small gaps
-  const totalCandles = candles.length;
-  const candleSpacing = CHART_WIDTH / totalCandles;
-  // Candle body takes 80% of slot width; higher cap so few-candle charts aren't sparse
-  const candleWidth = Math.max(4, Math.min(60, candleSpacing * 0.8));
 
   const priceChange =
     ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100;
 
-  // Generate Y-axis grid lines
+  // Y-axis grid lines
   const yLabels = [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
     price: rangeMax - pct * range,
     y: PADDING_TOP + pct * CHART_HEIGHT,
   }));
 
-  // Tooltip info for hovered candle
+  // Tooltip info
   const hoveredInfo = hoveredCandle !== null ? candles[hoveredCandle] : null;
+
+  // SVG CSS width — if vbWidth > MIN_VB_WIDTH, make SVG wider than container to create overflow
+  const svgWidthPct = vbWidth > MIN_VB_WIDTH ? `${(vbWidth / MIN_VB_WIDTH) * 100}%` : "100%";
 
   return (
     <motion.div
@@ -439,11 +464,16 @@ const CandlestickChart = ({
         </div>
       )}
 
-      <div className="relative w-full" style={{ height: 220 }}>
+      {/* Scrollable chart container */}
+      <div
+        ref={scrollContainerRef}
+        className="relative w-full overflow-x-auto"
+        style={{ height: 220 }}
+      >
         <svg
-          viewBox={`0 0 ${VB_WIDTH} ${VB_HEIGHT}`}
+          viewBox={`0 0 ${vbWidth} ${VB_HEIGHT}`}
           preserveAspectRatio="none"
-          className="w-full h-full"
+          style={{ width: svgWidthPct, height: "100%" }}
         >
           {/* Grid lines */}
           {yLabels.map((label, i) => (
@@ -451,7 +481,7 @@ const CandlestickChart = ({
               <line
                 x1={PADDING_LEFT}
                 y1={label.y}
-                x2={VB_WIDTH - PADDING_RIGHT}
+                x2={vbWidth - PADDING_RIGHT}
                 y2={label.y}
                 stroke="hsl(var(--muted-foreground))"
                 strokeOpacity={0.08}
@@ -460,16 +490,16 @@ const CandlestickChart = ({
             </g>
           ))}
 
-          {/* Candles — tightly packed */}
+          {/* Candles — thin, tightly spaced */}
           {candles.map((c, i) => {
             const isGreen = c.close >= c.open;
             const color = isGreen ? "hsl(var(--secondary))" : "hsl(var(--destructive))";
-            const x = PADDING_LEFT + candleSpacing * i + candleSpacing / 2;
+            const x = PADDING_LEFT + CANDLE_SLOT * i + CANDLE_SLOT / 2;
             const wickTop = yPos(c.high);
             const wickBot = yPos(c.low);
             const bodyTop = yPos(Math.max(c.open, c.close));
             const bodyBot = yPos(Math.min(c.open, c.close));
-            const bodyH = Math.max(bodyBot - bodyTop, 3);
+            const bodyH = Math.max(bodyBot - bodyTop, 1.5);
             const isHovered = hoveredCandle === i;
 
             return (
@@ -482,9 +512,9 @@ const CandlestickChart = ({
                 {/* Hover highlight */}
                 {isHovered && (
                   <rect
-                    x={x - candleSpacing / 2}
+                    x={x - CANDLE_SLOT / 2}
                     y={PADDING_TOP}
-                    width={candleSpacing}
+                    width={CANDLE_SLOT}
                     height={CHART_HEIGHT}
                     fill="hsl(var(--foreground))"
                     fillOpacity={0.04}
@@ -498,20 +528,20 @@ const CandlestickChart = ({
                   x2={x}
                   y2={wickBot}
                   stroke={color}
-                  strokeWidth={1}
+                  strokeWidth={WICK_WIDTH}
                   strokeLinecap="round"
                 />
 
                 {/* Body (open-close rectangle) */}
                 <rect
-                  x={x - candleWidth / 2}
+                  x={x - BODY_WIDTH / 2}
                   y={bodyTop}
-                  width={candleWidth}
+                  width={BODY_WIDTH}
                   height={bodyH}
-                  rx={0.5}
+                  rx={0.3}
                   fill={color}
                   stroke={isHovered ? "hsl(var(--foreground))" : "none"}
-                  strokeWidth={0.5}
+                  strokeWidth={0.3}
                 />
               </g>
             );
@@ -523,7 +553,7 @@ const CandlestickChart = ({
               <line
                 x1={PADDING_LEFT}
                 y1={yPos(currentPrice)}
-                x2={VB_WIDTH - PADDING_RIGHT}
+                x2={vbWidth - PADDING_RIGHT}
                 y2={yPos(currentPrice)}
                 stroke="hsl(var(--primary))"
                 strokeWidth={0.8}
@@ -531,7 +561,7 @@ const CandlestickChart = ({
                 strokeOpacity={0.6}
               />
               <rect
-                x={VB_WIDTH - PADDING_RIGHT - 2}
+                x={vbWidth - PADDING_RIGHT - 2}
                 y={yPos(currentPrice) - 6}
                 width={4}
                 height={12}
