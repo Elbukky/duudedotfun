@@ -1,68 +1,141 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, MessageCircle } from "lucide-react";
+import { useWeb3 } from "@/lib/web3Provider";
+import { useProfiles } from "@/lib/profileProvider";
+import { shortAddress } from "@/lib/arcscan";
+import { toast } from "sonner";
 
 interface ChatMessage {
-  id: string;
-  user: string;
-  avatar: string;
+  _id?: string;
+  senderAddress: string;
   message: string;
-  timestamp: string;
+  timestamp: string; // ISO string
+  tokenAddress?: string;
+  // Resolved display fields (client-side)
+  displayName?: string;
+  avatarUrl?: string;
 }
 
-const randomAvatars = ["🐸", "🦊", "🐶", "🦍", "🤖", "👽", "🎃", "🐉", "👑", "🧙"];
-const randomUsers = ["0xd3g3...n420", "0xm00n...beef", "0xape...lord", "0xfr0g...king", "0xwhal...3000", "0xpap3...hand"];
+interface ChatBoxProps {
+  title?: string;
+  /** "token" or "arena" */
+  mode: "token" | "arena";
+  /** Required for token chat — the token contract address */
+  tokenAddress?: string;
+}
 
-const generateMockMessages = (context: string): ChatMessage[] => [
-  { id: "1", user: "0xd3g3...n420", avatar: "🐸", message: `this ${context} is gonna moon fr fr 🚀`, timestamp: "2m ago" },
-  { id: "2", user: "0xm00n...beef", avatar: "🦊", message: "LFG!! just aped in hard 💪", timestamp: "3m ago" },
-  { id: "3", user: "0xape...lord", avatar: "🦍", message: "who else is holding? diamond hands only 💎", timestamp: "5m ago" },
-  { id: "4", user: "0xfr0g...king", avatar: "🐸", message: "the chart looks bullish af ngl", timestamp: "7m ago" },
-  { id: "5", user: "0xwhal...3000", avatar: "🐉", message: "just bought another bag 🐋", timestamp: "8m ago" },
-  { id: "6", user: "0xpap3...hand", avatar: "👽", message: "when dex listing? 👀", timestamp: "10m ago" },
-];
-
-const ChatBox = ({ title = "💬 LIVE CHAT", context = "token" }: { title?: string; context?: string }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => generateMockMessages(context));
+const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
+  const { address: userAddress, isConnected } = useWeb3();
+  const { getDisplayName, batchResolve, getProfile } = useProfiles();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isOpen, setIsOpen] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [loadingMsgs, setLoadingMsgs] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval>>();
 
+  // Fetch messages from API
+  const fetchMessages = useCallback(async () => {
+    try {
+      let url: string;
+      if (mode === "token" && tokenAddress) {
+        url = `/api/chat/token?tokenAddress=${encodeURIComponent(tokenAddress)}&limit=50`;
+      } else if (mode === "arena") {
+        url = `/api/chat/arena?limit=50`;
+      } else {
+        return;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const docs: ChatMessage[] = await res.json();
+
+      // Reverse to get oldest-first for display
+      docs.reverse();
+
+      // Batch resolve usernames for all senders
+      const addresses = [...new Set(docs.map((d) => d.senderAddress))];
+      await batchResolve(addresses);
+
+      setMessages(docs);
+    } catch (err) {
+      console.error("Chat fetch error:", err);
+    } finally {
+      setLoadingMsgs(false);
+    }
+  }, [mode, tokenAddress, batchResolve]);
+
+  // Initial load and polling
+  useEffect(() => {
+    fetchMessages();
+    pollRef.current = setInterval(fetchMessages, 8000);
+    return () => clearInterval(pollRef.current);
+  }, [fetchMessages]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
-    const newMsg: ChatMessage = {
-      id: Date.now().toString(),
-      user: "You",
-      avatar: "😎",
-      message: input,
-      timestamp: "now",
-    };
-    setMessages((prev) => [...prev, newMsg]);
-    setInput("");
+  const sendMessage = async () => {
+    if (!input.trim() || !isConnected || !userAddress) {
+      if (!isConnected) toast.error("Connect wallet to chat");
+      return;
+    }
+    if (input.trim().length > 500) {
+      toast.error("Message too long (max 500 chars)");
+      return;
+    }
 
-    // Simulate a reply
-    setTimeout(() => {
-      const replies = [
-        "based 🔥", "wagmi", "nice entry!", "LFG 🚀", "to the moon!", "ape in! 🦍",
-        "ser this is a wendy's", "bullish af", "diamond hands 💎", "gm gm ☀️",
-      ];
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          user: randomUsers[Math.floor(Math.random() * randomUsers.length)],
-          avatar: randomAvatars[Math.floor(Math.random() * randomAvatars.length)],
-          message: replies[Math.floor(Math.random() * replies.length)],
-          timestamp: "now",
-        },
-      ]);
-    }, 1500 + Math.random() * 2000);
+    setSending(true);
+    try {
+      let url: string;
+      let body: Record<string, string>;
+
+      if (mode === "token" && tokenAddress) {
+        url = "/api/chat/token";
+        body = { tokenAddress, senderAddress: userAddress, message: input.trim() };
+      } else if (mode === "arena") {
+        url = "/api/chat/arena";
+        body = { senderAddress: userAddress, message: input.trim() };
+      } else {
+        return;
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Send failed" }));
+        throw new Error(err.error);
+      }
+
+      const doc: ChatMessage = await res.json();
+      setMessages((prev) => [...prev, doc]);
+      setInput("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatTime = (ts: string) => {
+    const d = new Date(ts);
+    const now = Date.now();
+    const diffMin = Math.floor((now - d.getTime()) / 60000);
+    if (diffMin < 1) return "now";
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    return `${Math.floor(diffH / 24)}d ago`;
   };
 
   return (
@@ -80,7 +153,7 @@ const ChatBox = ({ title = "💬 LIVE CHAT", context = "token" }: { title?: stri
           {title}
         </h3>
         <span className="text-xs text-muted-foreground font-body">
-          {messages.length} msgs · {isOpen ? "▲" : "▼"}
+          {messages.length} msgs {isOpen ? "▲" : "▼"}
         </span>
       </button>
 
@@ -97,43 +170,66 @@ const ChatBox = ({ title = "💬 LIVE CHAT", context = "token" }: { title?: stri
               ref={scrollRef}
               className="space-y-2 max-h-60 overflow-y-auto pr-1 mb-3 scrollbar-thin scrollbar-thumb-primary/20"
             >
-              {messages.map((msg, i) => (
-                <motion.div
-                  key={msg.id}
-                  className={`flex gap-2 items-start ${msg.user === "You" ? "flex-row-reverse" : ""}`}
-                  initial={{ opacity: 0, x: msg.user === "You" ? 10 : -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i < 6 ? i * 0.05 : 0 }}
-                >
-                  <span className="text-lg flex-shrink-0">{msg.avatar}</span>
-                  <div
-                    className={`rounded-xl px-3 py-1.5 max-w-[80%] ${
-                      msg.user === "You"
-                        ? "bg-primary/20 border border-primary/30"
-                        : "bg-muted/50 border border-border/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-display text-primary">{msg.user}</span>
-                      <span className="text-[10px] text-muted-foreground">{msg.timestamp}</span>
-                    </div>
-                    <p className="text-xs font-body text-foreground">{msg.message}</p>
-                  </div>
-                </motion.div>
-              ))}
+              {loadingMsgs ? (
+                <p className="text-xs text-muted-foreground font-body text-center py-4 animate-pulse">
+                  Loading chat...
+                </p>
+              ) : messages.length === 0 ? (
+                <p className="text-xs text-muted-foreground font-body text-center py-4">
+                  No messages yet. Be the first!
+                </p>
+              ) : (
+                messages.map((msg, i) => {
+                  const isMe = userAddress && msg.senderAddress.toLowerCase() === userAddress.toLowerCase();
+                  const profile = getProfile(msg.senderAddress);
+                  const name = isMe ? "You" : (profile?.displayName || profile?.username || shortAddress(msg.senderAddress));
+                  const avatar = profile?.avatarUrl;
+
+                  return (
+                    <motion.div
+                      key={msg._id || `${msg.senderAddress}-${msg.timestamp}-${i}`}
+                      className={`flex gap-2 items-start ${isMe ? "flex-row-reverse" : ""}`}
+                      initial={{ opacity: 0, x: isMe ? 10 : -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i < 6 ? i * 0.03 : 0 }}
+                    >
+                      {avatar ? (
+                        <img src={avatar} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <span className="text-lg flex-shrink-0">💬</span>
+                      )}
+                      <div
+                        className={`rounded-xl px-3 py-1.5 max-w-[80%] ${
+                          isMe
+                            ? "bg-primary/20 border border-primary/30"
+                            : "bg-muted/50 border border-border/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-[10px] font-display text-primary">{name}</span>
+                          <span className="text-[10px] text-muted-foreground">{formatTime(msg.timestamp)}</span>
+                        </div>
+                        <p className="text-xs font-body text-foreground">{msg.message}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
             </div>
 
             <div className="flex gap-2">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                placeholder="say something degen..."
-                className="flex-1 bg-muted/30 border border-border/50 rounded-xl px-3 py-2 text-xs font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
+                onKeyDown={(e) => e.key === "Enter" && !sending && sendMessage()}
+                placeholder={isConnected ? "say something..." : "connect wallet to chat"}
+                disabled={!isConnected || sending}
+                className="flex-1 bg-muted/30 border border-border/50 rounded-xl px-3 py-2 text-xs font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 disabled:opacity-50"
               />
               <button
                 onClick={sendMessage}
-                className="btn-arcade px-3 py-2 text-xs"
+                disabled={!isConnected || sending || !input.trim()}
+                className="btn-arcade px-3 py-2 text-xs disabled:opacity-50"
               >
                 <Send size={14} />
               </button>

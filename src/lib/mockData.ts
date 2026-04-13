@@ -18,10 +18,25 @@ export function setCreatorName(address: string, name: string): void {
   } catch {}
 }
 
-/** Returns the saved creator name if any, otherwise shortAddress fallback */
+// ---------- Global profile cache bridge ----------
+// ProfileProvider writes here so non-React code (enrichedToToken) can read display names.
+const _globalProfileNames: Record<string, string> = {};
+
+/** Called by ProfileProvider to sync profile names into the global cache */
+export function syncProfileName(address: string, displayName: string): void {
+  _globalProfileNames[address.toLowerCase()] = displayName;
+}
+
+/** Returns the saved creator name if any, otherwise shortAddress fallback.
+ *  Checks: global profile cache → localStorage → shortAddress */
 export function resolveCreatorDisplayName(address: string): string {
+  const key = address.toLowerCase();
+  // 1. Check DB-backed profile cache (set by ProfileProvider)
+  if (_globalProfileNames[key]) return _globalProfileNames[key];
+  // 2. Fallback to localStorage
   const name = getCreatorName(address);
   if (name) return name;
+  // 3. shortAddress
   return address.slice(0, 6) + "..." + address.slice(-4);
 }
 

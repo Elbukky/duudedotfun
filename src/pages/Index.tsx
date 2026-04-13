@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight, Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import mascot from "@/assets/mascot.png";
 import pepeAstronaut from "@/assets/pepe-astronaut.png";
 import TokenCard from "@/components/TokenCard";
@@ -8,6 +9,7 @@ import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import { enrichedToToken } from "@/lib/mockData";
 import { useTokenFactory } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
+import { useProfiles } from "@/lib/profileProvider";
 import { shortAddress } from "@/lib/arcscan";
 import Navbar from "@/components/Navbar";
 import { ethers } from "ethers";
@@ -15,6 +17,7 @@ import { ethers } from "ethers";
 const Index = () => {
   const { enrichedTokens, loading, tokenCount } = useTokenFactory();
   const { battleData } = useArenaRegistry();
+  const { getDisplayName, getProfile, batchResolve } = useProfiles();
 
   // Convert to display tokens
   const displayTokens = enrichedTokens.map((e, i) => enrichedToToken(e, i + 1));
@@ -71,6 +74,12 @@ const Index = () => {
   const topCreators = [...creatorMap.values()]
     .sort((a, b) => b.totalHype - a.totalHype)
     .slice(0, 5);
+
+  // Batch resolve creator profiles for display names
+  useEffect(() => {
+    const addrs = topCreators.map((c) => c.address);
+    if (addrs.length > 0) batchResolve(addrs);
+  }, [topCreators.length]); // re-run when list changes
 
   // Stats
   const totalVolume = enrichedTokens.reduce((sum, e) => {
@@ -365,8 +374,11 @@ const Index = () => {
           </h2>
           {topCreators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              {topCreators.map((c, i) => (
-                <Link key={c.address} to={`/creator/${c.address}`}>
+              {topCreators.map((c, i) => {
+                const profile = getProfile(c.address);
+                const creatorLink = profile?.username ? `/u/${profile.username}` : `/creator/${c.address}`;
+                return (
+                <Link key={c.address} to={creatorLink}>
                   <motion.div
                     className="card-cartoon text-center cursor-pointer"
                     initial={{ opacity: 0, y: 20 }}
@@ -377,7 +389,7 @@ const Index = () => {
                     <motion.span className="text-4xl block mb-2" whileHover={{ scale: 1.2, rotate: 10 }}>
                       {i === 0 ? "👑" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🧑‍💻"}
                     </motion.span>
-                    <h4 className="font-display text-xs text-foreground">{shortAddress(c.address)}</h4>
+                    <h4 className="font-display text-xs text-foreground">{getDisplayName(c.address)}</h4>
                     <p className="text-xs text-muted-foreground font-body">
                       {c.tokens} launch{c.tokens !== 1 ? "es" : ""} · {c.graduated} graduated
                     </p>
@@ -391,7 +403,8 @@ const Index = () => {
                     </div>
                   </motion.div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           ) : !loading ? (
             <div className="text-center py-8">

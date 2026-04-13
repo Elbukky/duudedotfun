@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock, Droplets, Wallet } from "lucide-react";
+import { ArrowLeft, Trophy, Rocket, Users, Star, Loader2, Copy, Check, ExternalLink, Pencil, Lock, Unlock, Clock, Droplets, Wallet, Share2 } from "lucide-react";
 import { ethers } from "ethers";
 import Navbar from "@/components/Navbar";
 import TokenCard from "@/components/TokenCard";
@@ -9,9 +9,11 @@ import { useTokenFactory, type EnrichedToken } from "@/hooks/useTokenFactory";
 import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
+import { useProfiles } from "@/lib/profileProvider";
 import { getBondingCurve, getPostMigrationPool, getLaunchToken, getFeeVault, getFeeVaultWrite, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
-import { enrichedToToken, resolveCreatorDisplayName, getCreatorName, setCreatorName as saveCreatorName } from "@/lib/mockData";
+import { enrichedToToken } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
+import { compressImage, uploadImageToR2 } from "@/lib/imageUtils";
 import { toast } from "sonner";
 
 const CreatorProfile = () => {
@@ -20,6 +22,7 @@ const CreatorProfile = () => {
   const { getCreatorRecord } = useArenaRegistry();
   const { readProvider, address: connectedAddress } = useWeb3();
   const { getVestingInfo, claim, claiming } = useVestingVault();
+  const { fetchProfile, updateProfile, getProfile } = useProfiles();
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ tokensCreated: 0, tokensGraduated: 0, arenaBattlesWon: 0 });
@@ -45,13 +48,13 @@ const CreatorProfile = () => {
   // Portfolio: tokens held by this address (not just created)
   const [portfolio, setPortfolio] = useState<{ record: TokenRecord; balance: bigint; spotPrice: bigint; value: number }[]>([]);
 
-  // Mock profile image (stored locally as base64 for now)
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-
-  // Creator name system (localStorage, MongoDB later)
-  const [creatorNameValue, setCreatorNameValue] = useState("");
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState("");
+  // DB-backed profile data
+  const [profileData, setProfileData] = useState<{ username?: string; displayName?: string; avatarUrl?: string } | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Is the connected wallet viewing their own profile?
   const isOwnProfile = !!(connectedAddress && address && connectedAddress.toLowerCase() === address.toLowerCase());
@@ -159,14 +162,14 @@ const CreatorProfile = () => {
     fetchCreatorData();
   }, [fetchCreatorData]);
 
-  // Load saved profile image and creator name from localStorage
+  // Fetch profile data from DB
   useEffect(() => {
     if (address) {
-      const saved = localStorage.getItem(`profile-image-${address.toLowerCase()}`);
-      if (saved) setProfileImage(saved);
-      setCreatorNameValue(getCreatorName(address));
+      fetchProfile(address).then((p) => {
+        if (p) setProfileData({ username: p.username, displayName: p.displayName, avatarUrl: p.avatarUrl });
+      });
     }
-  }, [address]);
+  }, [address, fetchProfile]);
 
   // Fetch vesting data for this creator's tokens (check if connected wallet has vesting)
   useEffect(() => {
@@ -215,16 +218,12 @@ const CreatorProfile = () => {
     const checkOwnership = async () => {
       try {
         const vault = getFeeVault(readProvider);
-        const [primaryOwner, second, pClaimable] = await Promise.all([
-          vault.owner().catch(() => ethers.ZeroAddress),
-          vault.secondOwner().catch(() => ethers.ZeroAddress),
+        const [ownerFlag, pClaimable] = await Promise.all([
+          vault.isOwner(connectedAddress).catch(() => false),
           vault.protocolClaimable().catch(() => 0n),
         ]);
-        const isOwner =
-          connectedAddress.toLowerCase() === primaryOwner.toLowerCase() ||
-          (second !== ethers.ZeroAddress && connectedAddress.toLowerCase() === second.toLowerCase());
-        setIsProtocolOwner(isOwner);
-        setProtocolFeeClaimable(isOwner ? pClaimable : 0n);
+        setIsProtocolOwner(ownerFlag);
+        setProtocolFeeClaimable(ownerFlag ? pClaimable : 0n);
       } catch (err) {
         console.error("Failed to check protocol ownership:", err);
         setIsProtocolOwner(false);
@@ -297,29 +296,49 @@ const CreatorProfile = () => {
     fetchPortfolio();
   }, [address, allEnrichedTokens, readProvider]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !address) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUri = ev.target?.result as string;
-      setProfileImage(dataUri);
-      localStorage.setItem(`profile-image-${address.toLowerCase()}`, dataUri);
-    };
-    reader.readAsDataURL(file);
+    setUploadingAvatar(true);
+    try {
+      const compressed = await compressImage(file, 256, 0.85);
+      const url = await uploadImageToR2(compressed, `avatar-${address.toLowerCase()}`);
+      if (url) {
+        await updateProfile({ address, avatarUrl: url });
+        setProfileData((prev) => ({ ...prev, avatarUrl: url }));
+        toast.success("Profile picture updated!");
+      } else {
+        toast.error("Upload failed — check R2 config");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
-  const handleSaveName = () => {
+  const handleStartEditProfile = () => {
+    setUsernameInput(profileData?.username || "");
+    setDisplayNameInput(profileData?.displayName || "");
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
     if (!address) return;
-    const trimmed = nameInput.trim();
-    saveCreatorName(address, trimmed);
-    setCreatorNameValue(trimmed);
-    setEditingName(false);
-  };
-
-  const handleStartEditName = () => {
-    setNameInput(creatorNameValue);
-    setEditingName(true);
+    setSavingProfile(true);
+    try {
+      const updates: Record<string, string> = { address };
+      if (usernameInput.trim()) updates.username = usernameInput.trim();
+      if (displayNameInput.trim()) updates.displayName = displayNameInput.trim();
+      const result = await updateProfile(updates);
+      setProfileData({ username: result.username, displayName: result.displayName, avatarUrl: result.avatarUrl });
+      setEditingProfile(false);
+      toast.success("Profile saved!");
+    } catch (err: any) {
+      toast.error(err.message || "Save failed");
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleClaim = async (vaultAddress: string, tokenSymbol: string) => {
@@ -367,7 +386,7 @@ const CreatorProfile = () => {
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const s = await provider.getSigner();
       const vault = getFeeVaultWrite(s);
-      toast.info("Claiming protocol fees (50/50 split)...");
+      toast.info("Claiming protocol fees (split between owners)...");
       const tx = await vault.claimProtocolFees();
       await tx.wait();
       toast.success("Protocol fees claimed!");
@@ -451,9 +470,9 @@ const CreatorProfile = () => {
               >
                 {/* Profile Image */}
                 <div className="relative inline-block mb-3">
-                  {profileImage ? (
+                  {profileData?.avatarUrl ? (
                     <img
-                      src={profileImage}
+                      src={profileData.avatarUrl}
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover border-4 border-primary/30"
                     />
@@ -468,49 +487,66 @@ const CreatorProfile = () => {
                   )}
                   {isOwnProfile && (
                     <label className="absolute bottom-0 right-0 bg-primary/80 text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center cursor-pointer hover:bg-primary text-xs">
-                      +
-                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      {uploadingAvatar ? "..." : "+"}
+                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingAvatar} />
                     </label>
                   )}
                 </div>
 
                 <h1 className="font-display text-2xl text-foreground">
-                  {creatorNameValue || shortAddress(address)}
+                  {profileData?.displayName || profileData?.username || shortAddress(address)}
                 </h1>
+                {profileData?.username && (
+                  <p className="text-xs text-primary font-body">@{profileData.username}</p>
+                )}
                 {isOwnProfile && (
                   <div className="mt-1">
-                    {editingName ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <input
-                          type="text"
-                          value={nameInput}
-                          onChange={(e) => setNameInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
-                          placeholder="Enter your name..."
-                          maxLength={32}
-                          className="bg-muted border border-primary/30 rounded-lg px-3 py-1 text-sm text-foreground font-body focus:outline-none focus:border-primary/60 w-48"
-                          autoFocus
-                        />
-                        <button
-                          onClick={handleSaveName}
-                          className="text-xs font-body text-secondary hover:text-secondary/80 px-2 py-1 rounded bg-secondary/10"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setEditingName(false)}
-                          className="text-xs font-body text-muted-foreground hover:text-foreground px-2 py-1"
-                        >
-                          Cancel
-                        </button>
+                    {editingProfile ? (
+                      <div className="space-y-2 mt-2">
+                        <div className="flex items-center justify-center gap-2">
+                          <input
+                            type="text"
+                            value={usernameInput}
+                            onChange={(e) => setUsernameInput(e.target.value)}
+                            placeholder="Username (3-20 chars)"
+                            maxLength={20}
+                            className="bg-muted border border-primary/30 rounded-lg px-3 py-1 text-sm text-foreground font-body focus:outline-none focus:border-primary/60 w-40"
+                          />
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          <input
+                            type="text"
+                            value={displayNameInput}
+                            onChange={(e) => setDisplayNameInput(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveProfile()}
+                            placeholder="Display name"
+                            maxLength={32}
+                            className="bg-muted border border-primary/30 rounded-lg px-3 py-1 text-sm text-foreground font-body focus:outline-none focus:border-primary/60 w-40"
+                          />
+                        </div>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={handleSaveProfile}
+                            disabled={savingProfile}
+                            className="text-xs font-body text-secondary hover:text-secondary/80 px-3 py-1 rounded bg-secondary/10 disabled:opacity-50"
+                          >
+                            {savingProfile ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            onClick={() => setEditingProfile(false)}
+                            className="text-xs font-body text-muted-foreground hover:text-foreground px-2 py-1"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
-                        onClick={handleStartEditName}
-                        className="text-xs font-body text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                        onClick={handleStartEditProfile}
+                        className="text-xs font-body text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mx-auto"
                       >
                         <Pencil size={10} />
-                        {creatorNameValue ? "Edit name" : "Set display name"}
+                        {profileData?.username ? "Edit profile" : "Set username & profile"}
                       </button>
                     )}
                   </div>
@@ -523,6 +559,19 @@ const CreatorProfile = () => {
                   <a href={addressLink(address)} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
                     <ExternalLink size={12} />
                   </a>
+                  <button
+                    onClick={() => {
+                      const link = profileData?.username
+                        ? `${window.location.origin}/u/${profileData.username}`
+                        : `${window.location.origin}/creator/${address}`;
+                      navigator.clipboard.writeText(link);
+                      toast.success("Profile link copied!");
+                    }}
+                    className="text-muted-foreground hover:text-primary"
+                    title="Copy profile link"
+                  >
+                    <Share2 size={12} />
+                  </button>
                 </div>
 
                 {/* Badges */}
@@ -838,7 +887,7 @@ const CreatorProfile = () => {
                         <div>
                           <p className="font-display text-sm text-foreground">Protocol Fees</p>
                           <p className="text-[10px] text-muted-foreground font-body">
-                            50/50 split between owners on claim
+                            Even split between all protocol owners on claim
                           </p>
                         </div>
                         <span className="text-[9px] font-body text-primary bg-primary/10 px-1.5 py-0.5 rounded">OWNER</span>

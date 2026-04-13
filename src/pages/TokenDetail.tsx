@@ -13,6 +13,7 @@ import CandlestickChart from "@/components/CandlestickChart";
 import StatusBadge from "@/components/StatusBadge";
 import AuraWrapper from "@/components/AuraWrapper";
 import { useWeb3 } from "@/lib/web3Provider";
+import { useProfiles } from "@/lib/profileProvider";
 import { useBondingCurve } from "@/hooks/useBondingCurve";
 import { usePostMigrationPool, type PoolStats } from "@/hooks/usePostMigrationPool";
 import {
@@ -28,11 +29,11 @@ import {
 import { shortAddress, addressLink, tokenLink } from "@/lib/arcscan";
 import { fetchTokenHolders } from "@/lib/arcscan";
 import type { Token, Mission } from "@/lib/mockData";
-import { resolveCreatorDisplayName } from "@/lib/mockData";
 
 const TokenDetail = () => {
   const { address } = useParams<{ address: string }>();
   const { readProvider } = useWeb3();
+  const { getDisplayName, fetchProfile, getProfile } = useProfiles();
 
   const [record, setRecord] = useState<TokenRecord | null>(null);
   const [curveAddress, setCurveAddress] = useState<string | null>(null);
@@ -110,6 +111,13 @@ const TokenDetail = () => {
 
     fetchRecord();
   }, [address, readProvider]);
+
+  // Fetch creator profile for display name
+  useEffect(() => {
+    if (record?.creator) {
+      fetchProfile(record.creator);
+    }
+  }, [record?.creator, fetchProfile]);
 
   // Fetch curve state and metrics
   const refreshData = useCallback(async () => {
@@ -308,7 +316,7 @@ const TokenDetail = () => {
     bondingProgress: bondingPct,
     category: record?.links?.extra || "Degen",
     creatorId: record?.creator || "",
-    creatorName: record ? resolveCreatorDisplayName(record.creator) : "",
+    creatorName: record ? getDisplayName(record.creator) : "",
     lore: record?.description || "",
     launchedAt,
     arenaRank: 0,
@@ -497,10 +505,13 @@ const TokenDetail = () => {
                   </p>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Link
-                      to={`/creator/${record.creator}`}
+                      to={(() => {
+                        const profile = getProfile(record.creator);
+                        return profile?.username ? `/u/${profile.username}` : `/creator/${record.creator}`;
+                      })()}
                       className="text-xs text-primary font-body hover:underline"
                     >
-                      by {resolveCreatorDisplayName(record.creator)}
+                      by {getDisplayName(record.creator)}
                     </Link>
                     <span className="text-xs text-muted-foreground">
                       · {launchedAt}
@@ -756,7 +767,8 @@ const TokenDetail = () => {
               />
               <ChatBox
                 title={`${record.symbol} CHAT`}
-                context={record.name}
+                mode="token"
+                tokenAddress={address}
               />
             </div>
 
@@ -809,10 +821,13 @@ const TokenDetail = () => {
                   <div className="flex items-center justify-between text-xs font-body">
                     <span className="text-muted-foreground">Creator</span>
                     <Link
-                      to={`/creator/${record.creator}`}
+                      to={(() => {
+                        const profile = getProfile(record.creator);
+                        return profile?.username ? `/u/${profile.username}` : `/creator/${record.creator}`;
+                      })()}
                       className="text-primary hover:underline"
                     >
-                      {shortAddress(record.creator)}
+                      {getDisplayName(record.creator)}
                     </Link>
                   </div>
                 </div>

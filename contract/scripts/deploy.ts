@@ -14,6 +14,10 @@ const PRIVATE_KEY =
 const DEFAULT_CLIFF_DAYS = 30;
 const BATTLE_DURATION = 86400; // 24 hours in seconds
 
+// ── Protocol owners (added to FeeVault) ─────────────────────────────────────
+const OWNER_1 = "0x20262821B19ADf7BC1f61bEd48f5D254898E42B4";
+const OWNER_2 = "0x6159a66fc5cE153Cb003890ec4f07FEfdcc5bE92";
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function loadArtifact(contractName: string) {
   const path = join(
@@ -66,12 +70,12 @@ async function main() {
   }
 
   // ── Step 1: FeeVault (no deps) ──────────────────────────────────────────
-  console.log("\n── Step 1/11: FeeVault ──");
+  console.log("\n── Step 1/14: FeeVault ──");
   const feeVault = await deployContract(wallet, "FeeVault");
   const feeVaultAddr = await feeVault.getAddress();
 
   // ── Step 2: LaunchToken impl (no deps) ──────────────────────────────────
-  console.log("\n── Step 2/11: LaunchToken (implementation) ──");
+  console.log("\n── Step 2/14: LaunchToken (implementation) ──");
   const launchTokenImpl = await deployContract(
     wallet,
     "LaunchToken",
@@ -81,7 +85,7 @@ async function main() {
   const launchTokenImplAddr = await launchTokenImpl.getAddress();
 
   // ── Step 3: BondingCurve impl (no deps) ─────────────────────────────────
-  console.log("\n── Step 3/11: BondingCurve (implementation) ──");
+  console.log("\n── Step 3/14: BondingCurve (implementation) ──");
   const bondingCurveImpl = await deployContract(
     wallet,
     "BondingCurve",
@@ -91,7 +95,7 @@ async function main() {
   const bondingCurveImplAddr = await bondingCurveImpl.getAddress();
 
   // ── Step 4: VestingVault impl (no deps) ─────────────────────────────────
-  console.log("\n── Step 4/11: VestingVault (implementation) ──");
+  console.log("\n── Step 4/14: VestingVault (implementation) ──");
   const vestingVaultImpl = await deployContract(
     wallet,
     "VestingVault",
@@ -101,7 +105,7 @@ async function main() {
   const vestingVaultImplAddr = await vestingVaultImpl.getAddress();
 
   // ── Step 5: PostMigrationPool impl (no deps) ───────────────────────────
-  console.log("\n── Step 5/11: PostMigrationPool (implementation) ──");
+  console.log("\n── Step 5/14: PostMigrationPool (implementation) ──");
   const postMigrationPoolImpl = await deployContract(
     wallet,
     "PostMigrationPool",
@@ -111,7 +115,7 @@ async function main() {
   const postMigrationPoolImplAddr = await postMigrationPoolImpl.getAddress();
 
   // ── Step 6: PostMigrationFactory (needs poolImpl + feeVault) ────────────
-  console.log("\n── Step 6/11: PostMigrationFactory ──");
+  console.log("\n── Step 6/14: PostMigrationFactory ──");
   const postMigrationFactory = await deployContract(
     wallet,
     "PostMigrationFactory",
@@ -120,7 +124,7 @@ async function main() {
   const postMigrationFactoryAddr = await postMigrationFactory.getAddress();
 
   // ── Step 7: TokenFactory (needs all impls + postMigFactory + feeVault) ──
-  console.log("\n── Step 7/11: TokenFactory ──");
+  console.log("\n── Step 7/14: TokenFactory ──");
   const tokenFactory = await deployContract(wallet, "TokenFactory", [
     launchTokenImplAddr,
     bondingCurveImplAddr,
@@ -132,7 +136,7 @@ async function main() {
   const tokenFactoryAddr = await tokenFactory.getAddress();
 
   // ── Step 8: FeeVault.authorizeFactory(TokenFactory) ─────────────────────
-  console.log("\n── Step 8/11: FeeVault.authorizeFactory(TokenFactory) ──");
+  console.log("\n── Step 8/14: FeeVault.authorizeFactory(TokenFactory) ──");
   let tx = await feeVault.authorizeFactory(tokenFactoryAddr);
   let receipt = await tx.wait();
   console.log(`  ✓ FeeVault authorized TokenFactory`);
@@ -140,7 +144,7 @@ async function main() {
 
   // ── Step 9: PostMigrationFactory.setAuthorizedFactory(TokenFactory) ─────
   console.log(
-    "\n── Step 9/11: PostMigrationFactory.setAuthorizedFactory(TokenFactory) ──"
+    "\n── Step 9/14: PostMigrationFactory.setAuthorizedFactory(TokenFactory) ──"
   );
   tx = await postMigrationFactory.setAuthorizedFactory(tokenFactoryAddr);
   receipt = await tx.wait();
@@ -148,7 +152,7 @@ async function main() {
   console.log(`    tx: ${receipt.hash}`);
 
   // ── Step 10: ArenaRegistry (needs TokenFactory) ─────────────────────────
-  console.log("\n── Step 10/11: ArenaRegistry ──");
+  console.log("\n── Step 10/14: ArenaRegistry ──");
   const arenaRegistry = await deployContract(wallet, "ArenaRegistry", [
     tokenFactoryAddr,
     BATTLE_DURATION,
@@ -157,12 +161,34 @@ async function main() {
 
   // ── Step 11: TokenFactory.setArenaRegistry(ArenaRegistry) ───────────────
   console.log(
-    "\n── Step 11/11: TokenFactory.setArenaRegistry(ArenaRegistry) ──"
+    "\n── Step 11/14: TokenFactory.setArenaRegistry(ArenaRegistry) ──"
   );
   tx = await tokenFactory.setArenaRegistry(arenaRegistryAddr);
   receipt = await tx.wait();
   console.log(`  ✓ TokenFactory linked to ArenaRegistry`);
   console.log(`    tx: ${receipt.hash}`);
+
+  // ── Step 12: FeeVault.addOwner(OWNER_1) ─────────────────────────────────
+  console.log("\n── Step 12/14: FeeVault.addOwner(OWNER_1) ──");
+  tx = await feeVault.addOwner(OWNER_1);
+  receipt = await tx.wait();
+  console.log(`  ✓ Added Owner 1: ${OWNER_1}`);
+  console.log(`    tx: ${receipt.hash}`);
+
+  // ── Step 13: FeeVault.addOwner(OWNER_2) ─────────────────────────────────
+  console.log("\n── Step 13/14: FeeVault.addOwner(OWNER_2) ──");
+  tx = await feeVault.addOwner(OWNER_2);
+  receipt = await tx.wait();
+  console.log(`  ✓ Added Owner 2: ${OWNER_2}`);
+  console.log(`    tx: ${receipt.hash}`);
+
+  // ── Step 14: Verify owners ──────────────────────────────────────────────
+  console.log("\n── Step 14/14: Verify FeeVault owners ──");
+  const ownerList = await feeVault.getOwners();
+  console.log(`  ✓ FeeVault has ${ownerList.length} owners:`);
+  for (let i = 0; i < ownerList.length; i++) {
+    console.log(`    [${i}] ${ownerList[i]}`);
+  }
 
   // ── Summary ─────────────────────────────────────────────────────────────
   const addresses = {
@@ -177,12 +203,13 @@ async function main() {
   };
 
   console.log("\n═══════════════════════════════════════════════════════════");
-  console.log("  DEPLOYMENT COMPLETE — All 8 contracts deployed");
+  console.log("  DEPLOYMENT COMPLETE — All 8 contracts deployed + owners set");
   console.log("═══════════════════════════════════════════════════════════");
   console.log("\nDeployed Addresses:");
   for (const [name, addr] of Object.entries(addresses)) {
     console.log(`  ${name.padEnd(28)} ${addr}`);
   }
+  console.log(`\nFeeVault Owners: deployer + ${OWNER_1} + ${OWNER_2} (3-way split)`);
 
   // Save addresses to file
   const outputPath = join(__dirname, "..", "deployments.json");
@@ -192,6 +219,7 @@ async function main() {
     deployer: wallet.address,
     deployedAt: new Date().toISOString(),
     addresses,
+    feeVaultOwners: [wallet.address, OWNER_1, OWNER_2],
   };
   writeFileSync(outputPath, JSON.stringify(output, null, 2));
   console.log(`\nAddresses saved to: ${outputPath}`);

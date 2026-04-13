@@ -151,10 +151,11 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
           toast.success(`Bought ${tokenSymbol}!`);
         } else {
           const tokensIn = ethers.parseEther(amount);
-          // Use the full quote amount (no slippage reduction) so the contract
-          // computes tokensIn ≈ full balance. maxIn caps actual token spending.
-          // Subtract 1 wei to avoid rounding reverts from ceiling division in the contract.
-          const usdcOut = poolQuote ? (poolQuote.amountOut > 1n ? poolQuote.amountOut - 1n : poolQuote.amountOut) : 0n;
+          // Apply 3% slippage tolerance to usdcOut. The pool swap is
+          // output-specified: we request usdcOut and the contract computes
+          // how many tokens to take. If reserves shifted since the quote,
+          // the actual output may differ — 3% buffer prevents reverts.
+          const usdcOut = poolQuote ? (poolQuote.amountOut * 97n) / 100n : 0n;
           toast.info("Confirming sell...");
           await pool.swap(0n, usdcOut, tokensIn);
           toast.success(`Sold ${tokenSymbol}!`);
@@ -255,11 +256,14 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
               <button
                 onClick={() => {
                   if (mode === "buy" && userBalance > 0n) {
-                    // Leave small buffer for gas (0.01 USDC)
-                    const maxUsdc = userBalance > ethers.parseEther("0.01")
-                      ? userBalance - ethers.parseEther("0.01")
-                      : userBalance;
-                    setAmount(ethers.formatEther(maxUsdc));
+                    // Leave buffer for gas — max(1% of balance, 0.1 USDC)
+                    const pctBuffer = userBalance / 100n; // 1%
+                    const minBuffer = ethers.parseEther("0.1");
+                    const buffer = pctBuffer > minBuffer ? pctBuffer : minBuffer;
+                    const maxUsdc = userBalance > buffer
+                      ? userBalance - buffer
+                      : 0n;
+                    if (maxUsdc > 0n) setAmount(ethers.formatEther(maxUsdc));
                   } else if (mode === "sell" && tokenBalance > 0n) {
                     setAmount(ethers.formatEther(tokenBalance));
                   }

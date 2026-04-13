@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /// @notice Bonding curves deposit protocol-only fees; post-migration pools
 ///         deposit 3-way split fees (protocol + creator; referrer share is
 ///         carved out of the creator portion inside this contract).
-///         Protocol fees are split 50/50 between two owners.
+///         Protocol fees are split evenly (1/N) among all owners.
 contract FeeVault is Ownable {
     using SafeERC20 for IERC20;
 
@@ -26,8 +26,10 @@ contract FeeVault is Ownable {
     /* ── accounting ────────────────────────────────────────────────── */
     uint256 public totalAccountedUSDC;
 
-    /* ── dual-owner for protocol fee split ─────────────────────────── */
-    address public secondOwner;
+    /* ── multi-owner for protocol fee split ─────────────────────────── */
+    address[] public owners;
+    mapping(address => bool) public isOwner;
+    bool public adminRenounced;
 
     /* ── access control ────────────────────────────────────────────── */
     mapping(address => bool) public authorizedSources;   // curves & pools
@@ -49,7 +51,8 @@ contract FeeVault is Ownable {
     event SourceRevoked(address indexed source);
     event FactoryAuthorized(address indexed factory_);
     event FactoryRevoked(address indexed factory_);
-    event SecondOwnerSet(address indexed secondOwner_);
+    event OwnerAdded(address indexed newOwner);
+    event AdminRenounced();
 
     /* ── modifiers ─────────────────────────────────────────────────── */
     modifier onlyAuthorized() {
@@ -65,29 +68,53 @@ contract FeeVault is Ownable {
         _;
     }
 
-    modifier onlyEitherOwner() {
-        require(
-            msg.sender == owner() || msg.sender == secondOwner,
-            "FeeVault: not an owner"
-        );
+    modifier onlyProtocolOwner() {
+        require(isOwner[msg.sender], "FeeVault: not a protocol owner");
+        _;
+    }
+
+    modifier adminNotRenounced() {
+        require(!adminRenounced, "FeeVault: admin renounced");
         _;
     }
 
     /* ── constructor ───────────────────────────────────────────────── */
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable(msg.sender) {
+        // Deployer is the first owner by default
+        owners.push(msg.sender);
+        isOwner[msg.sender] = true;
+        emit OwnerAdded(msg.sender);
+    }
 
     /* ══════════════════════════════════════════════════════════════════
-       ADMIN
+       ADMIN — only deployer (Ownable owner), unless renounced
     ══════════════════════════════════════════════════════════════════ */
 
-    /// @notice Set the second owner for 50/50 protocol fee split.
-    ///         Can only be called by the primary owner.
-    ///         Can be updated later if needed (e.g. to change the second owner).
-    function setSecondOwner(address secondOwner_) external onlyOwner {
-        require(secondOwner_ != address(0), "FeeVault: zero address");
-        require(secondOwner_ != owner(), "FeeVault: same as primary owner");
-        secondOwner = secondOwner_;
-        emit SecondOwnerSet(secondOwner_);
+    /// @notice Add a new protocol owner. Split adjusts automatically to 1/N.
+    ///         Only the deployer (Ownable owner) can call, unless admin is renounced.
+    function addOwner(address newOwner) external onlyOwner adminNotRenounced {
+        require(newOwner != address(0), "FeeVault: zero address");
+        require(!isOwner[newOwner], "FeeVault: already an owner");
+        owners.push(newOwner);
+        isOwner[newOwner] = true;
+        emit OwnerAdded(newOwner);
+    }
+
+    /// @notice Permanently renounce the admin power to add owners.
+    ///         Cannot be undone. Owner count is locked after this.
+    function renounceAdmin() external onlyOwner {
+        adminRenounced = true;
+        emit AdminRenounced();
+    }
+
+    /// @notice Get the number of protocol owners.
+    function ownerCount() external view returns (uint256) {
+        return owners.length;
+    }
+
+    /// @notice Get all protocol owners.
+    function getOwners() external view returns (address[] memory) {
+        return owners;
     }
 
     function authorizeFactory(address factory_) external onlyOwner {
@@ -152,27 +179,29 @@ contract FeeVault is Ownable {
        CLAIMS
     ══════════════════════════════════════════════════════════════════ */
 
-    /// @notice Claim protocol fees. If secondOwner is set, splits 50/50.
-    ///         Either owner can trigger. Both owners receive their share.
-    function claimProtocolFees() external onlyEitherOwner {
+    /// @notice Claim protocol fees. Splits evenly (1/N) among all owners.
+    ///         Any protocol owner can trigger. All owners receive their share.
+    function claimProtocolFees() external onlyProtocolOwner {
         uint256 amount = protocolClaimable;
         require(amount > 0, "FeeVault: nothing to claim");
         protocolClaimable = 0;
         totalAccountedUSDC -= amount;
 
-        if (secondOwner != address(0)) {
-            // 50/50 split — handle odd wei by giving remainder to primary
-            uint256 half = amount / 2;
-            uint256 remainder = amount - half;
-            _sendNative(secondOwner, half);
-            _sendNative(owner(), remainder);
-            emit ProtocolFeesClaimed(owner(), remainder);
-            emit ProtocolFeesClaimed(secondOwner, half);
-        } else {
-            // Single owner — all goes to primary
-            _sendNative(owner(), amount);
-            emit ProtocolFeesClaimed(owner(), amount);
+        uint256 n = owners.length;
+        uint256 share = amount / n;
+        uint256 distributed = 0;
+
+        // Send equal shares to all owners except the last
+        for (uint256 i = 0; i < n - 1; i++) {
+            _sendNative(owners[i], share);
+            emit ProtocolFeesClaimed(owners[i], share);
+            distributed += share;
         }
+
+        // Last owner gets share + any remainder (dust from integer division)
+        uint256 lastShare = amount - distributed;
+        _sendNative(owners[n - 1], lastShare);
+        emit ProtocolFeesClaimed(owners[n - 1], lastShare);
     }
 
     function claimCreatorFees() external {
