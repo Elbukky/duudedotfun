@@ -75,20 +75,20 @@ function getStatusBadge(
   et: EnrichedToken,
   priceChangePct: number
 ): { label: string; color: string } | null {
-  const age = Math.floor(Date.now() / 1000) - et.record.createdAt;
-  const trades = et.buyCount + et.sellCount;
+  const age = Math.floor(Date.now() / 1000) - Number(et.record.createdAt);
+  const trades = Number(et.buyCount) + Number(et.sellCount);
 
-  if (priceChangePct > 50 && et.buyPressureBps > 6000 && trades > 3)
+  if (priceChangePct > 50 && Number(et.buyPressureBps) > 6000 && trades > 3)
     return {
       label: "MOONING",
       color: "bg-secondary/20 text-secondary border-secondary/30",
     };
-  if (trades > 10 || (et.buyCount > 5 && et.sellCount > 2))
+  if (trades > 10 || (Number(et.buyCount) > 5 && Number(et.sellCount) > 2))
     return {
       label: "HOT",
       color: "bg-orange-500/20 text-orange-400 border-orange-500/30",
     };
-  if (priceChangePct < -10 || (et.buyPressureBps < 2500 && trades > 3))
+  if (priceChangePct < -10 || (Number(et.buyPressureBps) < 2500 && trades > 3))
     return {
       label: "DIPPING",
       color: "bg-destructive/20 text-destructive border-destructive/30",
@@ -250,7 +250,7 @@ const Explore = () => {
           et.totalBuyVolume + et.totalSellVolume + et.postMigrationVolume
         )
       );
-      const bondingPct = et.bondingProgressBps / 100;
+      const bondingPct = Number(et.bondingProgressBps) / 100;
 
       // All-time change from initial virtual price (used as fallback)
       const allTimeChange =
@@ -269,7 +269,7 @@ const Explore = () => {
         buyPressureBps: et.buyPressureBps,
         percentCompleteBps: et.bondingProgressBps,
       };
-      const hype = computeScore(metrics, et.record.graduated);
+      const hype = computeScore(metrics);
       const badge = getStatusBadge(et, allTimeChange);
 
       return { et, price, mcap, volume, bondingPct, hype, badge };
@@ -843,7 +843,7 @@ const Explore = () => {
 
                           {/* Holders */}
                           <td className="p-3 text-right font-body text-xs text-foreground">
-                            {et.holderCount}
+                            {Number(et.holderCount)}
                           </td>
 
                           {/* Bonding */}
@@ -878,7 +878,7 @@ const Explore = () => {
 
                           {/* Age */}
                           <td className="p-3 text-right text-muted-foreground font-body text-[10px] whitespace-nowrap">
-                            {formatAge(rec.createdAt)}
+                            {formatAge(Number(rec.createdAt))}
                           </td>
 
                           {/* Trade buttons */}
