@@ -20,7 +20,7 @@ const CreatorProfile = () => {
   const { address } = useParams<{ address: string }>();
   const { getCreatorStats, getCreatorTokens, getTokenRecord, enrichedTokens: allEnrichedTokens } = useTokenFactory();
   const { getCreatorRecord } = useArenaRegistry();
-  const { readProvider, address: connectedAddress } = useWeb3();
+  const { readProvider, signer: web3Signer, address: connectedAddress } = useWeb3();
   const { getVestingInfo, claim, claiming } = useVestingVault();
   const { fetchProfile, updateProfile, getProfile } = useProfiles();
 
@@ -363,11 +363,13 @@ const CreatorProfile = () => {
   };
 
   const handleClaimCreatorFees = async () => {
+    if (!web3Signer) {
+      toast.error("Connect wallet first");
+      return;
+    }
     try {
       setClaimingFee(true);
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const s = await provider.getSigner();
-      const vault = getFeeVaultWrite(s);
+      const vault = getFeeVaultWrite(web3Signer);
       toast.info("Claiming creator fees...");
       const tx = await vault.claimCreatorFees();
       await tx.wait();
@@ -381,11 +383,13 @@ const CreatorProfile = () => {
   };
 
   const handleClaimProtocolFees = async () => {
+    if (!web3Signer) {
+      toast.error("Connect wallet first");
+      return;
+    }
     try {
       setClaimingProtocolFee(true);
-      const provider = new ethers.BrowserProvider((window as any).ethereum);
-      const s = await provider.getSigner();
-      const vault = getFeeVaultWrite(s);
+      const vault = getFeeVaultWrite(web3Signer);
       toast.info("Claiming protocol fees (split between owners)...");
       const tx = await vault.claimProtocolFees();
       await tx.wait();

@@ -3,7 +3,7 @@
 // Returns array of profiles for the given addresses
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDb } from "./lib/db";
+import { getDb, ensureIndexes } from "./lib/db";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -27,6 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const capped = addresses.slice(0, 50).map((a: string) => a.toLowerCase());
 
     const db = await getDb();
+    await ensureIndexes(db);
     const profiles = db.collection("profiles");
 
     const docs = await profiles

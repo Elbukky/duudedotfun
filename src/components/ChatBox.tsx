@@ -1,10 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, ShieldCheck } from "lucide-react";
 import { useWeb3 } from "@/lib/web3Provider";
 import { useProfiles } from "@/lib/profileProvider";
 import { shortAddress } from "@/lib/arcscan";
 import { toast } from "sonner";
+
+const SIGN_MESSAGE = "Sign this message to verify your wallet for duude.fun chat.\n\nThis does not cost any gas.";
 
 interface ChatMessage {
   _id?: string;
@@ -26,13 +28,14 @@ interface ChatBoxProps {
 }
 
 const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
-  const { address: userAddress, isConnected } = useWeb3();
+  const { address: userAddress, isConnected, signer } = useWeb3();
   const { getDisplayName, batchResolve, getProfile } = useProfiles();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isOpen, setIsOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(true);
+  const [verifying, setVerifying] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -49,7 +52,10 @@ const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
       }
 
       const res = await fetch(url);
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.error("Chat fetch failed:", res.status, await res.text().catch(() => ""));
+        return;
+      }
       const docs: ChatMessage[] = await res.json();
 
       // Reverse to get oldest-first for display
@@ -81,6 +87,28 @@ const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
     }
   }, [messages]);
 
+  const requestSignature = async (): Promise<string | null> => {
+    if (!signer) {
+      toast.error("Wallet not connected");
+      return null;
+    }
+    setVerifying(true);
+    try {
+      toast.info("Sign the message to verify your wallet for chat");
+      const signature = await signer.signMessage(SIGN_MESSAGE);
+      return signature;
+    } catch (err: any) {
+      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+        toast.error("Signature rejected — required for first chat message");
+      } else {
+        toast.error("Failed to sign message");
+      }
+      return null;
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || !isConnected || !userAddress) {
       if (!isConnected) toast.error("Connect wallet to chat");
@@ -106,11 +134,31 @@ const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
         return;
       }
 
-      const res = await fetch(url, {
+      // First attempt without signature
+      let res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+
+      // If server says signature required, get signature and retry
+      if (res.status === 403) {
+        const errData = await res.json().catch(() => ({}));
+        if (errData.error === "SIGNATURE_REQUIRED") {
+          const signature = await requestSignature();
+          if (!signature) {
+            setSending(false);
+            return;
+          }
+
+          // Retry with signature
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...body, signature }),
+          });
+        }
+      }
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Send failed" }));
@@ -221,17 +269,17 @@ const ChatBox = ({ title = "LIVE CHAT", mode, tokenAddress }: ChatBoxProps) => {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !sending && sendMessage()}
+                onKeyDown={(e) => e.key === "Enter" && !sending && !verifying && sendMessage()}
                 placeholder={isConnected ? "say something..." : "connect wallet to chat"}
-                disabled={!isConnected || sending}
+                disabled={!isConnected || sending || verifying}
                 className="flex-1 bg-muted/30 border border-border/50 rounded-xl px-3 py-2 text-xs font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 disabled:opacity-50"
               />
               <button
                 onClick={sendMessage}
-                disabled={!isConnected || sending || !input.trim()}
+                disabled={!isConnected || sending || verifying || !input.trim()}
                 className="btn-arcade px-3 py-2 text-xs disabled:opacity-50"
               >
-                <Send size={14} />
+                {verifying ? <ShieldCheck size={14} className="animate-pulse" /> : <Send size={14} />}
               </button>
             </div>
           </motion.div>

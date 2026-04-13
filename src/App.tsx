@@ -1,5 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { WagmiProvider } from "wagmi";
+import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import "@rainbow-me/rainbowkit/styles.css";
+import { wagmiConfig } from "@/lib/wagmiConfig";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,31 +23,42 @@ import NotFound from "./pages/NotFound.tsx";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <Web3Provider>
-      <TokenDataProvider>
-        <ProfileProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/launch" element={<LaunchToken />} />
-                <Route path="/token/:address" element={<TokenDetail />} />
-                <Route path="/arena" element={<Arena />} />
-                <Route path="/liquidity" element={<Liquidity />} />
-                <Route path="/docs" element={<Docs />} />
-                <Route path="/creator/:address" element={<CreatorProfile />} />
-                <Route path="/u/:username" element={<UserProfilePage />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ProfileProvider>
-      </TokenDataProvider>
-    </Web3Provider>
-  </QueryClientProvider>
+  <WagmiProvider config={wagmiConfig}>
+    <QueryClientProvider client={queryClient}>
+      <RainbowKitProvider
+        theme={darkTheme({
+          accentColor: "hsl(270 80% 60%)", // --neon-purple
+          accentColorForeground: "white",
+          borderRadius: "large",
+          fontStack: "system",
+        })}
+      >
+        <Web3Provider>
+          <TokenDataProvider>
+            <ProfileProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/launch" element={<LaunchToken />} />
+                    <Route path="/token/:address" element={<TokenDetail />} />
+                    <Route path="/arena" element={<Arena />} />
+                    <Route path="/liquidity" element={<Liquidity />} />
+                    <Route path="/docs" element={<Docs />} />
+                    <Route path="/creator/:address" element={<CreatorProfile />} />
+                    <Route path="/u/:username" element={<UserProfilePage />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </ProfileProvider>
+          </TokenDataProvider>
+        </Web3Provider>
+      </RainbowKitProvider>
+    </QueryClientProvider>
+  </WagmiProvider>
 );
 
 export default App;

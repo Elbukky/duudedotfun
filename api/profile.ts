@@ -1,16 +1,17 @@
 // Vercel Serverless Function — User profile CRUD
 // GET  /api/profile?address=0x... — get profile by wallet address
 // GET  /api/profile?username=foo  — get profile by username (for shareable links)
-// POST /api/profile { address, username, displayName, avatarUrl, signature } — upsert profile
+// POST /api/profile { address, username, displayName, avatarUrl } — upsert profile
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDb } from "./lib/db";
+import { getDb, ensureIndexes } from "./lib/db";
 
 interface UserProfile {
   address: string; // lowercase wallet address (primary key)
   username: string; // unique, lowercase
   displayName: string; // display name (case preserved)
   avatarUrl: string; // R2 URL
+  chatVerified?: boolean; // true after first chat signature verification
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,11 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const db = await getDb();
+    await ensureIndexes(db);
     const profiles = db.collection<UserProfile>("profiles");
-
-    // Ensure indexes exist (idempotent)
-    await profiles.createIndex({ address: 1 }, { unique: true });
-    await profiles.createIndex({ username: 1 }, { unique: true, sparse: true });
 
     if (req.method === "GET") {
       const { address, username } = req.query;
