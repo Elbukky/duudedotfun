@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ethers } from "ethers";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { useTokenData, type EnrichedToken } from "@/lib/tokenDataProvider";
@@ -626,10 +626,6 @@ const Explore = () => {
 
   // ── Open / close trade panel ──
   const openTrade = (tokenAddr: string, mode: TradeMode) => {
-    if (expandedToken === tokenAddr && tradeMode === mode) {
-      setExpandedToken(null);
-      return;
-    }
     setExpandedToken(tokenAddr);
     setTradeMode(mode);
     setTradeAmount("");
@@ -752,7 +748,6 @@ const Explore = () => {
                       row;
                     const rec = et.record;
                     const globalIdx = (page - 1) * PAGE_SIZE + i + 1;
-                    const isExpanded = expandedToken === rec.token;
 
                     // 24h data (background fetched) — fallback to all-time
                     const d24 = data24h[rec.token];
@@ -766,10 +761,9 @@ const Explore = () => {
                     const isPositive = change24h >= 0;
 
                     return (
-                      <Fragment key={rec.token}>
-                        {/* Data row */}
                         <tr
-                          className={`border-b border-primary/10 transition-colors hover:bg-primary/[0.03] ${isExpanded ? "bg-primary/[0.05]" : ""}`}
+                          key={rec.token}
+                          className="border-b border-primary/10 transition-colors hover:bg-primary/[0.03]"
                         >
                           <td className="p-3 text-muted-foreground font-body text-xs">
                             {globalIdx}
@@ -889,11 +883,7 @@ const Explore = () => {
                                   e.preventDefault();
                                   openTrade(rec.token, "buy");
                                 }}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-display transition-colors ${
-                                  isExpanded && tradeMode === "buy"
-                                    ? "bg-secondary text-secondary-foreground"
-                                    : "bg-secondary/15 text-secondary hover:bg-secondary/25"
-                                }`}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-display transition-colors bg-secondary/15 text-secondary hover:bg-secondary/25"
                               >
                                 Buy
                               </button>
@@ -902,179 +892,13 @@ const Explore = () => {
                                   e.preventDefault();
                                   openTrade(rec.token, "sell");
                                 }}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-display transition-colors ${
-                                  isExpanded && tradeMode === "sell"
-                                    ? "bg-destructive text-destructive-foreground"
-                                    : "bg-destructive/15 text-destructive hover:bg-destructive/25"
-                                }`}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-display transition-colors bg-destructive/15 text-destructive hover:bg-destructive/25"
                               >
                                 Sell
                               </button>
                             </div>
                           </td>
                         </tr>
-
-                        {/* Expanded trade panel */}
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={11} className="p-0">
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden border-b border-primary/20 bg-background/60"
-                              >
-                                <div className="p-4 flex flex-col lg:flex-row items-start lg:items-center gap-3">
-                                  {/* Mode toggle */}
-                                  <div className="flex gap-0.5 rounded-lg bg-muted p-0.5">
-                                    <button
-                                      onClick={() => {
-                                        setTradeMode("buy");
-                                        setTradeAmount("");
-                                        setQuoteResult("");
-                                      }}
-                                      className={`px-3 py-1 rounded-md text-xs font-display transition-colors ${
-                                        tradeMode === "buy"
-                                          ? "bg-secondary text-secondary-foreground"
-                                          : "text-muted-foreground hover:text-foreground"
-                                      }`}
-                                    >
-                                      Buy
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setTradeMode("sell");
-                                        setTradeAmount("");
-                                        setQuoteResult("");
-                                      }}
-                                      className={`px-3 py-1 rounded-md text-xs font-display transition-colors ${
-                                        tradeMode === "sell"
-                                          ? "bg-destructive text-destructive-foreground"
-                                          : "text-muted-foreground hover:text-foreground"
-                                      }`}
-                                    >
-                                      Sell
-                                    </button>
-                                  </div>
-
-                                  {/* Balance */}
-                                  <div className="text-xs font-body text-muted-foreground whitespace-nowrap">
-                                    {!isConnected ? (
-                                      "Connect wallet to trade"
-                                    ) : balanceLoading ? (
-                                      <span className="animate-pulse">
-                                        Loading...
-                                      </span>
-                                    ) : tradeMode === "buy" ? (
-                                      <>
-                                        USDC:{" "}
-                                        <span className="text-foreground">
-                                          $
-                                          {formatNumber(
-                                            parseFloat(
-                                              ethers.formatEther(usdcBalance)
-                                            ),
-                                            2
-                                          )}
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        {rec.symbol}:{" "}
-                                        <span className="text-foreground">
-                                          {formatNumber(
-                                            parseFloat(
-                                              ethers.formatEther(tokenBalance)
-                                            ),
-                                            2
-                                          )}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-
-                                  {/* Presets */}
-                                  <div className="flex gap-1">
-                                    {[25, 50, 75, 100].map((pct) => (
-                                      <button
-                                        key={pct}
-                                        onClick={() => handlePreset(pct)}
-                                        disabled={!isConnected}
-                                        className="px-2 py-0.5 rounded-md text-[10px] font-display bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-30"
-                                      >
-                                        {pct}%
-                                      </button>
-                                    ))}
-                                  </div>
-
-                                  {/* Amount input */}
-                                  <div className="flex-1 min-w-[150px]">
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      placeholder={
-                                        tradeMode === "buy"
-                                          ? "USDC amount"
-                                          : "Token amount"
-                                      }
-                                      value={tradeAmount}
-                                      onChange={(e) => {
-                                        if (
-                                          /^[0-9]*\.?[0-9]*$/.test(
-                                            e.target.value
-                                          )
-                                        )
-                                          setTradeAmount(e.target.value);
-                                      }}
-                                      className="w-full px-3 py-1.5 rounded-lg bg-card border border-primary/20 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
-                                    />
-                                  </div>
-
-                                  {/* Quote output */}
-                                  <div className="text-xs font-body text-muted-foreground min-w-[130px]">
-                                    {quoting ? (
-                                      <span className="animate-pulse">
-                                        Quoting...
-                                      </span>
-                                    ) : quoteResult ? (
-                                      <span className="text-foreground">
-                                        {quoteResult}
-                                      </span>
-                                    ) : null}
-                                  </div>
-
-                                  {/* Execute */}
-                                  <button
-                                    onClick={executeTrade}
-                                    disabled={
-                                      !isConnected ||
-                                      !tradeAmount ||
-                                      executing ||
-                                      quoting
-                                    }
-                                    className={`px-5 py-1.5 rounded-lg text-xs font-display transition-colors disabled:opacity-30 whitespace-nowrap ${
-                                      tradeMode === "buy"
-                                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
-                                        : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    }`}
-                                  >
-                                    {executing ? (
-                                      <Loader2
-                                        size={14}
-                                        className="animate-spin"
-                                      />
-                                    ) : tradeMode === "buy" ? (
-                                      "Buy"
-                                    ) : (
-                                      "Sell"
-                                    )}
-                                  </button>
-                                </div>
-                              </motion.div>
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -1113,6 +937,167 @@ const Explore = () => {
           </>
         )}
       </div>
+
+      {/* ── Trade Modal ── */}
+      <AnimatePresence>
+        {expandedToken && (() => {
+          const selectedEt = enrichedTokens.find(e => e.record.token === expandedToken);
+          if (!selectedEt) return null;
+          const rec = selectedEt.record;
+          const selectedPrice = rec.graduated && selectedEt.poolSpotPrice > 0n
+            ? parseFloat(ethers.formatEther(selectedEt.poolSpotPrice))
+            : parseFloat(ethers.formatEther(selectedEt.spotPrice));
+
+          return (
+            <motion.div
+              key="trade-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              onClick={() => setExpandedToken(null)}
+            >
+              <motion.div
+                key="trade-modal"
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ duration: 0.15 }}
+                className="w-full max-w-md bg-card border border-primary/20 rounded-2xl shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal header */}
+                <div className="flex items-center justify-between p-4 border-b border-primary/10">
+                  <div className="flex items-center gap-3">
+                    {rec.imageURI ? (
+                      <img src={rec.imageURI} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
+                        <span className="font-display text-xs text-primary">{rec.symbol.slice(0, 2)}</span>
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-display text-sm text-foreground">{rec.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground font-body">{rec.symbol}</span>
+                        <span className="text-xs text-foreground font-body">{formatPriceNum(selectedPrice)}</span>
+                        {rec.graduated && (
+                          <span className="text-[9px] font-display text-accent bg-accent/10 px-1.5 py-px rounded-full">DEX</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setExpandedToken(null)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Modal body */}
+                <div className="p-4 space-y-4">
+                  {/* Mode toggle */}
+                  <div className="flex gap-0.5 rounded-xl bg-muted p-1">
+                    <button
+                      onClick={() => { setTradeMode("buy"); setTradeAmount(""); setQuoteResult(""); }}
+                      className={`flex-1 py-2 rounded-lg text-sm font-display transition-colors ${
+                        tradeMode === "buy"
+                          ? "bg-secondary text-secondary-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Buy
+                    </button>
+                    <button
+                      onClick={() => { setTradeMode("sell"); setTradeAmount(""); setQuoteResult(""); }}
+                      className={`flex-1 py-2 rounded-lg text-sm font-display transition-colors ${
+                        tradeMode === "sell"
+                          ? "bg-destructive text-destructive-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Sell
+                    </button>
+                  </div>
+
+                  {/* Balance */}
+                  <div className="text-xs font-body text-muted-foreground">
+                    {!isConnected ? (
+                      "Connect wallet to trade"
+                    ) : balanceLoading ? (
+                      <span className="animate-pulse">Loading balance...</span>
+                    ) : tradeMode === "buy" ? (
+                      <>Balance: <span className="text-foreground">${formatNumber(parseFloat(ethers.formatEther(usdcBalance)), 2)} USDC</span></>
+                    ) : (
+                      <>Balance: <span className="text-foreground">{formatNumber(parseFloat(ethers.formatEther(tokenBalance)), 2)} {rec.symbol}</span></>
+                    )}
+                  </div>
+
+                  {/* Presets */}
+                  <div className="flex gap-2">
+                    {[25, 50, 75, 100].map((pct) => (
+                      <button
+                        key={pct}
+                        onClick={() => handlePreset(pct)}
+                        disabled={!isConnected}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-display bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-30"
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Amount input */}
+                  <div>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={tradeMode === "buy" ? "USDC amount" : "Token amount"}
+                      value={tradeAmount}
+                      onChange={(e) => {
+                        if (/^[0-9]*\.?[0-9]*$/.test(e.target.value)) setTradeAmount(e.target.value);
+                      }}
+                      className="w-full px-4 py-3 rounded-xl bg-background border border-primary/20 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
+                    />
+                  </div>
+
+                  {/* Quote */}
+                  {(quoting || quoteResult) && (
+                    <div className="text-sm font-body text-center">
+                      {quoting ? (
+                        <span className="text-muted-foreground animate-pulse">Quoting...</span>
+                      ) : (
+                        <span className="text-foreground">{quoteResult}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Execute */}
+                  <button
+                    onClick={executeTrade}
+                    disabled={!isConnected || !tradeAmount || executing || quoting}
+                    className={`w-full py-3 rounded-xl text-sm font-display transition-colors disabled:opacity-30 ${
+                      tradeMode === "buy"
+                        ? "bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                        : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    }`}
+                  >
+                    {executing ? (
+                      <Loader2 size={16} className="animate-spin mx-auto" />
+                    ) : tradeMode === "buy" ? (
+                      `Buy ${rec.symbol}`
+                    ) : (
+                      `Sell ${rec.symbol}`
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 };
