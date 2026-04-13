@@ -62,6 +62,7 @@ contract TokenFactory is Ownable {
         SocialLinks links;
         address[] beneficiaries;
         uint256[] bpsAllocations;
+        uint256 cliffDays;       // 30-90; 0 = use defaultCliffDays
         address referrer;
     }
 
@@ -155,8 +156,10 @@ contract TokenFactory is Ownable {
         uint256 vestedAmount;
         address vestingVaultAddr;
         if (p.beneficiaries.length > 0 && totalBps > 0) {
+            uint256 cliff = p.cliffDays > 0 ? p.cliffDays : defaultCliffDays;
+            require(cliff >= 30 && cliff <= 90, "Factory: cliff 30-90 days");
             (vestingVaultAddr, vestedAmount) = _setupVesting(
-                tokenAddr, totalSupply_, totalBps, p.beneficiaries, p.bpsAllocations
+                tokenAddr, totalSupply_, totalBps, p.beneficiaries, p.bpsAllocations, cliff
             );
         }
 
@@ -184,7 +187,8 @@ contract TokenFactory is Ownable {
         uint256 totalSupply_,
         uint256 totalBps,
         address[] calldata beneficiaries,
-        uint256[] calldata bpsAllocations
+        uint256[] calldata bpsAllocations,
+        uint256 cliffDays
     ) internal returns (address vault, uint256 vestedAmount) {
         vestedAmount = (totalSupply_ * totalBps) / 10_000;
 
@@ -205,7 +209,7 @@ contract TokenFactory is Ownable {
             address(this),
             beneficiaries,
             amounts,
-            defaultCliffDays
+            cliffDays
         );
     }
 

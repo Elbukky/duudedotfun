@@ -2,7 +2,9 @@
   "network": "arc-testnet",
   "chainId": 5042002,
   "deployer": "0x000031866E6b3da022a8dadF52847e95bBc66F99",
-  "deployedAt": "2026-04-13T14:45:31.256Z",
+  "deployedAt": "2026-04-13T21:06:55.848Z",
+  "upgradedAt": "2026-04-13T21:06:55.849Z",
+  "upgradeReason": "Added per-token cliffDays to CreateParams",
   "addresses": {
     "FeeVault": "0xE51456E01CB44e9B656c5D54BE22bBEC3A0f252B",
     "LaunchToken_Impl": "0x65e9Dd20FA6F1643fB0199b69421A61E4e5660b9",
@@ -10,9 +12,10 @@
     "VestingVault_Impl": "0xf256b373e17E58EA6E24c30A2975320254a7bBA7",
     "PostMigrationPool_Impl": "0xdE73aF09a0DDC32e228Da97e2b60F369b5BA4CE5",
     "PostMigrationFactory": "0xE87b516980247b07f01f9BC28d0B605Ab341f9d2",
-    "TokenFactory": "0x21c1eD19E091aB31D34Ae1546edef79584773924",
+    "TokenFactory": "0xedd5cEF880d935f9A86566596D9FfC2EaB5Ae324",
     "ArenaRegistry": "0xcFaED45786554bF62870546f47349A1120F66a67"
   },
+  "previousTokenFactory": "0x21c1eD19E091aB31D34Ae1546edef79584773924",
   "feeVaultOwners": [
     "0x000031866E6b3da022a8dadF52847e95bBc66F99",
     "0x20262821B19ADf7BC1f61bEd48f5D254898E42B4",

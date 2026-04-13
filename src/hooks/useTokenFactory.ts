@@ -25,6 +25,7 @@ export interface CreateTokenParams {
   };
   beneficiaries: string[];
   bpsAllocations: number[];
+  cliffDays: number; // 30-90; 0 = use contract default (30)
   referrer: string;
 }
 
@@ -56,6 +57,7 @@ export function useTokenFactory() {
             ],
             params.beneficiaries,
             params.bpsAllocations,
+            params.cliffDays,
             params.referrer,
           ],
           { value }

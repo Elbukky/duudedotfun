@@ -33,6 +33,7 @@ const LaunchToken = () => {
 
   // Beneficiary / Vesting state
   const [beneficiaries, setBeneficiaries] = useState<{ address: string; bps: string }[]>([]);
+  const [cliffDays, setCliffDays] = useState(30);
   const MAX_TOTAL_BPS = 500; // 5% max
 
   const totalBps = beneficiaries.reduce((sum, b) => sum + (parseInt(b.bps) || 0), 0);
@@ -143,6 +144,7 @@ const LaunchToken = () => {
           },
           beneficiaries: validBeneficiaries,
           bpsAllocations: validBps,
+          cliffDays: validBeneficiaries.length > 0 ? cliffDays : 0,
           referrer: ethers.ZeroAddress,
         },
         initialBuyAmount
@@ -276,7 +278,28 @@ const LaunchToken = () => {
                   <Info size={14} className="text-primary shrink-0 mt-0.5" />
                   <div className="text-xs text-muted-foreground font-body space-y-1">
                     <p>Allocate up to <strong className="text-foreground">5% (500 BPS)</strong> of total supply to team/advisors.</p>
-                    <p>Tokens vest linearly over <strong className="text-foreground">1 year</strong> with a <strong className="text-foreground">30-day cliff</strong>. No tokens are claimable until after the cliff.</p>
+                    <p>Tokens vest linearly over <strong className="text-foreground">1 year</strong> with a configurable cliff period. No tokens are claimable until after the cliff.</p>
+                  </div>
+                </div>
+
+                {/* Cliff Days Selector */}
+                <div>
+                  <label className="text-xs text-muted-foreground font-body mb-2 block">
+                    Cliff Period: <strong className="text-foreground">{cliffDays} days</strong>
+                  </label>
+                  <input
+                    type="range"
+                    min={30}
+                    max={90}
+                    step={1}
+                    value={cliffDays}
+                    onChange={(e) => setCliffDays(parseInt(e.target.value))}
+                    className="w-full accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-body mt-1">
+                    <span>30 days</span>
+                    <span>60 days</span>
+                    <span>90 days</span>
                   </div>
                 </div>
 
@@ -388,7 +411,7 @@ const LaunchToken = () => {
                         </div>
                         <div className="flex justify-between text-xs font-body">
                           <span className="text-muted-foreground">Cliff</span>
-                          <span className="text-foreground">30 days</span>
+                          <span className="text-foreground">{cliffDays} days</span>
                         </div>
                         <div className="flex justify-between text-xs font-body">
                           <span className="text-muted-foreground">Full Vest</span>

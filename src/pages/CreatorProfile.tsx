@@ -10,7 +10,7 @@ import { useArenaRegistry } from "@/hooks/useArenaRegistry";
 import { useVestingVault, type VestingInfo } from "@/hooks/useVestingVault";
 import { useWeb3 } from "@/lib/web3Provider";
 import { useProfiles } from "@/lib/profileProvider";
-import { getBondingCurve, getPostMigrationPool, getLaunchToken, getFeeVault, getFeeVaultWrite, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
+import { getBondingCurve, getPostMigrationPool, getLaunchToken, getFeeVault, getFeeVaultWrite, getVestingVault, type TokenRecord, formatTokenAmount, formatUSDC, formatPrice, formatNumber } from "@/lib/contracts";
 import { enrichedToToken } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { compressImage, uploadImageToR2 } from "@/lib/imageUtils";
@@ -32,6 +32,12 @@ const CreatorProfile = () => {
 
   // Vesting data for tokens that have vesting vaults
   const [vestingData, setVestingData] = useState<{ record: TokenRecord; info: VestingInfo }[]>([]);
+
+  // All beneficiary data for tokens with vesting vaults (visible to everyone)
+  const [allBeneficiaryData, setAllBeneficiaryData] = useState<{
+    record: TokenRecord;
+    beneficiaries: { wallet: string; allocation: bigint; claimed: bigint }[];
+  }[]>([]);
 
   // Creator fee claimable from FeeVault (post-graduation 0.1% creator fee)
   const [creatorFeeClaimable, setCreatorFeeClaimable] = useState<bigint>(0n);
@@ -191,6 +197,37 @@ const CreatorProfile = () => {
     };
     fetchVesting();
   }, [tokens, connectedAddress, getVestingInfo]);
+
+  // Fetch all beneficiary data for tokens with vesting vaults (visible to anyone)
+  useEffect(() => {
+    if (tokens.length === 0) {
+      setAllBeneficiaryData([]);
+      return;
+    }
+    const fetchAllBeneficiaries = async () => {
+      const results: { record: TokenRecord; beneficiaries: { wallet: string; allocation: bigint; claimed: bigint }[] }[] = [];
+      for (const t of tokens) {
+        if (t.record.vestingVault && t.record.vestingVault !== ethers.ZeroAddress) {
+          try {
+            const vault = getVestingVault(t.record.vestingVault, readProvider);
+            const [wallets, allocations, claimedAmounts] = await vault.getAllBeneficiaries();
+            const bens = (wallets as string[]).map((w: string, i: number) => ({
+              wallet: w,
+              allocation: (allocations as bigint[])[i],
+              claimed: (claimedAmounts as bigint[])[i],
+            }));
+            if (bens.length > 0) {
+              results.push({ record: t.record, beneficiaries: bens });
+            }
+          } catch (err) {
+            console.error("getAllBeneficiaries failed for", t.record.token, err);
+          }
+        }
+      }
+      setAllBeneficiaryData(results);
+    };
+    fetchAllBeneficiaries();
+  }, [tokens, readProvider]);
 
   // Fetch creator fee claimable from FeeVault (only when viewing own profile)
   useEffect(() => {
@@ -670,15 +707,17 @@ const CreatorProfile = () => {
                 <p className="text-center text-muted-foreground font-body py-8">No tokens launched yet.</p>
               )}
 
-              {/* Vesting & Claims */}
-              {vestingData.length > 0 && (
+              {/* Vesting — All Beneficiaries (visible to everyone) */}
+              {allBeneficiaryData.length > 0 && (
                 <div className="mt-8">
                   <h2 className="font-display text-lg text-foreground mb-4">
-                    VESTING & <span className="text-accent">CLAIMS</span>
+                    TEAM <span className="text-accent">VESTING</span>
                   </h2>
-                  <div className="space-y-3">
-                    {vestingData.map((v) => {
-                      const { record, info } = v;
+                  <div className="space-y-4">
+                    {allBeneficiaryData.map((item) => {
+                      const { record, beneficiaries: bens } = item;
+                      // Check if connected wallet is a beneficiary of this token
+                      const myVesting = vestingData.find((v) => v.record.vestingVault === record.vestingVault);
                       return (
                         <motion.div
                           key={record.vestingVault}
@@ -687,82 +726,126 @@ const CreatorProfile = () => {
                           animate={{ opacity: 1, y: 0 }}
                         >
                           <div className="flex items-center justify-between mb-3">
-                            <div>
-                              <Link
-                                to={`/token/${record.token}`}
-                                className="font-display text-sm text-foreground hover:text-primary transition-colors"
-                              >
-                                {record.name}{" "}
-                                <span className="text-primary">${record.symbol}</span>
-                              </Link>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              {info.isCliffPassed ? (
-                                <Unlock size={14} className="text-secondary" />
-                              ) : (
-                                <Lock size={14} className="text-muted-foreground" />
-                              )}
-                              <span className="text-xs font-body text-muted-foreground">
-                                {info.isCliffPassed ? "Cliff passed" : `Cliff: ${info.cliffDaysLeft}d left`}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Vesting progress bar */}
-                          <div className="mb-2">
-                            <div className="flex justify-between text-xs font-body mb-1">
-                              <span className="text-muted-foreground">Vested</span>
-                              <span className="text-foreground">{info.percentVested.toFixed(1)}%</span>
-                            </div>
-                            <div className="progress-arcade h-3">
-                              <motion.div
-                                className="progress-arcade-fill"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${info.percentVested}%` }}
-                                transition={{ duration: 1 }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Stats row */}
-                          <div className="grid grid-cols-3 gap-2 text-xs font-body mb-3">
-                            <div>
-                              <span className="text-muted-foreground block">Total</span>
-                              <span className="text-foreground">{formatTokenAmount(info.schedule.totalAllocation)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground block">Claimed</span>
-                              <span className="text-foreground">{formatTokenAmount(info.schedule.claimed)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground block">Claimable</span>
-                              <span className="text-secondary">{formatTokenAmount(info.schedule.claimableNow)}</span>
-                            </div>
-                          </div>
-
-                          {/* Time remaining */}
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground font-body mb-3">
-                            <Clock size={12} />
-                            <span>{info.vestingDaysLeft > 0 ? `${info.vestingDaysLeft} days until fully vested` : "Fully vested"}</span>
-                          </div>
-
-                          {/* Claim button — only on own profile and when there's something to claim */}
-                          {isOwnProfile && info.schedule.claimableNow > 0n && (
-                            <motion.button
-                              onClick={() => handleClaim(record.vestingVault, record.symbol)}
-                              disabled={claiming}
-                              className="w-full btn-arcade py-2.5 text-xs bg-secondary text-secondary-foreground border-secondary disabled:opacity-50"
-                              whileHover={{ scale: claiming ? 1 : 1.02 }}
-                              whileTap={{ scale: claiming ? 1 : 0.98 }}
+                            <Link
+                              to={`/token/${record.token}`}
+                              className="font-display text-sm text-foreground hover:text-primary transition-colors"
                             >
-                              {claiming ? "Claiming..." : `Claim ${formatTokenAmount(info.schedule.claimableNow)} ${record.symbol}`}
-                            </motion.button>
-                          )}
+                              {record.name}{" "}
+                              <span className="text-primary">${record.symbol}</span>
+                            </Link>
+                            {myVesting && (
+                              <div className="flex items-center gap-1.5">
+                                {myVesting.info.isCliffPassed ? (
+                                  <Unlock size={14} className="text-secondary" />
+                                ) : (
+                                  <Lock size={14} className="text-muted-foreground" />
+                                )}
+                                <span className="text-xs font-body text-muted-foreground">
+                                  {myVesting.info.isCliffPassed ? "Cliff passed" : `Cliff: ${myVesting.info.cliffDaysLeft}d left`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
 
-                          {isOwnProfile && info.schedule.claimableNow === 0n && !info.isCliffPassed && (
-                            <p className="text-xs text-muted-foreground font-body text-center py-1">
-                              Tokens locked until cliff ends ({info.cliffDaysLeft}d)
-                            </p>
+                          {/* Beneficiary table */}
+                          <div className="mb-3">
+                            <p className="text-[10px] text-muted-foreground font-body mb-2 uppercase tracking-wide">Beneficiaries</p>
+                            <div className="space-y-1.5">
+                              {bens.map((b) => {
+                                const isMe = connectedAddress && b.wallet.toLowerCase() === connectedAddress.toLowerCase();
+                                const pctClaimed = b.allocation > 0n
+                                  ? Number((b.claimed * 10000n) / b.allocation) / 100
+                                  : 0;
+                                return (
+                                  <div
+                                    key={b.wallet}
+                                    className={`flex items-center justify-between text-xs font-body rounded-lg px-2.5 py-1.5 ${
+                                      isMe ? "bg-primary/10 border border-primary/30" : "bg-muted/50"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <a
+                                        href={addressLink(b.wallet)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-foreground hover:text-primary transition-colors font-mono truncate"
+                                      >
+                                        {shortAddress(b.wallet)}
+                                      </a>
+                                      {isMe && (
+                                        <span className="text-[9px] font-body text-primary bg-primary/10 px-1 py-0.5 rounded shrink-0">YOU</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                      <span className="text-muted-foreground">{formatTokenAmount(b.allocation)}</span>
+                                      <span className="text-foreground w-12 text-right">{pctClaimed.toFixed(0)}%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Connected wallet's vesting details + claim */}
+                          {myVesting && (
+                            <>
+                              {/* Vesting progress bar */}
+                              <div className="mb-2">
+                                <div className="flex justify-between text-xs font-body mb-1">
+                                  <span className="text-muted-foreground">Your Vesting Progress</span>
+                                  <span className="text-foreground">{myVesting.info.percentVested.toFixed(1)}%</span>
+                                </div>
+                                <div className="progress-arcade h-3">
+                                  <motion.div
+                                    className="progress-arcade-fill"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${myVesting.info.percentVested}%` }}
+                                    transition={{ duration: 1 }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Stats row */}
+                              <div className="grid grid-cols-3 gap-2 text-xs font-body mb-3">
+                                <div>
+                                  <span className="text-muted-foreground block">Total</span>
+                                  <span className="text-foreground">{formatTokenAmount(myVesting.info.schedule.totalAllocation)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground block">Claimed</span>
+                                  <span className="text-foreground">{formatTokenAmount(myVesting.info.schedule.claimed)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground block">Claimable</span>
+                                  <span className="text-secondary">{formatTokenAmount(myVesting.info.schedule.claimableNow)}</span>
+                                </div>
+                              </div>
+
+                              {/* Time remaining */}
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground font-body mb-3">
+                                <Clock size={12} />
+                                <span>{myVesting.info.vestingDaysLeft > 0 ? `${myVesting.info.vestingDaysLeft} days until fully vested` : "Fully vested"}</span>
+                              </div>
+
+                              {/* Claim button */}
+                              {myVesting.info.schedule.claimableNow > 0n && (
+                                <motion.button
+                                  onClick={() => handleClaim(record.vestingVault, record.symbol)}
+                                  disabled={claiming}
+                                  className="w-full btn-arcade py-2.5 text-xs bg-secondary text-secondary-foreground border-secondary disabled:opacity-50"
+                                  whileHover={{ scale: claiming ? 1 : 1.02 }}
+                                  whileTap={{ scale: claiming ? 1 : 0.98 }}
+                                >
+                                  {claiming ? "Claiming..." : `Claim ${formatTokenAmount(myVesting.info.schedule.claimableNow)} ${record.symbol}`}
+                                </motion.button>
+                              )}
+
+                              {myVesting.info.schedule.claimableNow === 0n && !myVesting.info.isCliffPassed && (
+                                <p className="text-xs text-muted-foreground font-body text-center py-1">
+                                  Tokens locked until cliff ends ({myVesting.info.cliffDaysLeft}d)
+                                </p>
+                              )}
+                            </>
                           )}
                         </motion.div>
                       );
