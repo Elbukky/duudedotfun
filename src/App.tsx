@@ -17,6 +17,7 @@ import Arena from "./pages/Arena.tsx";
 import CreatorProfile from "./pages/CreatorProfile.tsx";
 import UserProfilePage from "./pages/UserProfile.tsx";
 import Docs from "./pages/Docs.tsx";
+import Explore from "./pages/Explore.tsx";
 import Liquidity from "./pages/Liquidity.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -42,6 +43,7 @@ const App = () => (
                 <BrowserRouter>
                   <Routes>
                     <Route path="/" element={<Index />} />
+                    <Route path="/explore" element={<Explore />} />
                     <Route path="/launch" element={<LaunchToken />} />
                     <Route path="/token/:address" element={<TokenDetail />} />
                     <Route path="/arena" element={<Arena />} />

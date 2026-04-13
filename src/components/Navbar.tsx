@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets } from "lucide-react";
+import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets } from "lucide-react";
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { shortAddress } from "@/lib/arcscan";
@@ -17,6 +17,7 @@ const Navbar = () => {
 
         const navItems = [
           { path: "/", label: "Home", icon: Flame },
+          { path: "/explore", label: "Explore", icon: Compass },
           { path: "/arena", label: "Arena", icon: Swords },
           { path: "/launch", label: "Launch", icon: Rocket },
           { path: "/liquidity", label: "Liquidity", icon: Droplets },
