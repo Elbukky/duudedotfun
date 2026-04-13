@@ -7,8 +7,8 @@ import {
   type ArenaMetrics,
 } from "@/lib/contracts";
 
-const GRADUATION_TARGET = ethers.parseEther("2500");
-const FEE_BPS = 30n;
+const GRADUATION_TARGET = ethers.parseEther("5000");
+const FEE_BPS = 60n;
 const BPS = 10000n;
 
 export interface QuoteResult {
@@ -93,7 +93,7 @@ export function useBondingCurve(curveAddress: string | null) {
         const realUSDCRaised: bigint = await curve.realUSDCRaised();
         const remaining = GRADUATION_TARGET - realUSDCRaised;
 
-        // Net USDC after 0.3% fee
+        // Net USDC after 0.6% fee
         const netUsdc = amountWei - (amountWei * FEE_BPS) / BPS;
 
         let willGraduate = false;
@@ -140,7 +140,7 @@ export function useBondingCurve(curveAddress: string | null) {
         const amountWei = ethers.parseEther(tokenAmount);
         const result = await curve.quoteSell(amountWei);
         const usdcOut: bigint = result[0];
-        // Fee = 0.3% of gross USDC output (fee deducted, result is net)
+        // Fee = 0.6% of gross USDC output (fee deducted, result is net)
         const grossApprox = (usdcOut * BPS) / (BPS - FEE_BPS);
         const fee = grossApprox - usdcOut;
         return {

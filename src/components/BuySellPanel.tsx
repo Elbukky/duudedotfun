@@ -64,7 +64,7 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
         if (graduated) {
           const stats = await pool.getPoolStats();
           if (stats && stats.tokenReserve > 0n && stats.usdcReserve > 0n) {
-            const feeBps = stats.activeLPSupply > 0n ? 50n : 30n; // 0.5% with LP, 0.3% without
+            const feeBps = 40n; // 0.40% fixed DEX fee
             if (mode === "buy") {
               const usdcIn = ethers.parseEther(amount);
               // Fee is deducted from USDC input
@@ -364,7 +364,7 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
                 {graduated && (
                   <div className="flex justify-between text-xs font-body">
                     <span className="text-muted-foreground">Fee</span>
-                    <span className="text-foreground">~0.5%</span>
+                    <span className="text-foreground">0.40%</span>
                   </div>
                 )}
               </>

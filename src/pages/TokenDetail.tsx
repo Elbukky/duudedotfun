@@ -728,7 +728,7 @@ const TokenDetail = () => {
                           ? "This token has graduated to the DEX pool."
                           : bondingPct >= 80
                             ? "Almost graduated!"
-                            : `${raised.toFixed(2)} / 2,500 USDC`}
+                            : `${raised.toFixed(2)} / 5,000 USDC`}
                       </p>
                       <a
                         href={tokenLink(address || "")}
@@ -786,8 +786,7 @@ const TokenDetail = () => {
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs font-body">
                         <span className="text-muted-foreground">
-                          Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
-                          {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
+                          Fee: 0.40% (DEX)
                         </span>
                         <span className="text-muted-foreground">
                           DEX Vol: ${formatNumber(postMigrationVolume)}
@@ -948,12 +947,12 @@ const TokenDetail = () => {
                       </div>
                       <div className="flex justify-between text-xs font-body">
                         <span className="text-muted-foreground">Grad. Target</span>
-                        <span className="text-foreground">2,500 USDC</span>
+                        <span className="text-foreground">5,000 USDC</span>
                       </div>
                       <div className="flex justify-between text-xs font-body">
                         <span className="text-muted-foreground">Fee</span>
                         <span className="text-foreground">
-                          {graduated ? "0.5% (DEX)" : "0.3% (Protocol)"}
+                          {graduated ? "0.40% (DEX)" : "0.60% (Bonding)"}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs font-body">
@@ -1001,7 +1000,7 @@ const TokenDetail = () => {
                         ? "Graduated to the DEX pool."
                         : bondingPct >= 80
                           ? "Almost graduated!"
-                          : `${raised.toFixed(2)} / 2,500 USDC`}
+                          : `${raised.toFixed(2)} / 5,000 USDC`}
                     </p>
                     <a
                       href={tokenLink(address || "")}
@@ -1059,8 +1058,7 @@ const TokenDetail = () => {
                     </div>
                     <div className="mt-2 flex items-center justify-between text-xs font-body">
                       <span className="text-muted-foreground">
-                        Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
-                        {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
+                        Fee: 0.40% (DEX)
                       </span>
                       <span className="text-muted-foreground">
                         DEX Vol: ${formatNumber(postMigrationVolume)}

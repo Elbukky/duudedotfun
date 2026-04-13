@@ -89,13 +89,6 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "depositProtocolFee",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "address",
@@ -116,11 +109,35 @@
           "internalType": "uint256",
           "name": "creatorAmt",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "lpAmt",
+          "type": "uint256"
         }
       ],
-      "name": "depositSplitFee",
+      "name": "depositFee",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "name": "lpPoolBalance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -153,6 +170,24 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "releaseLPFee",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -224,5 +259,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/contracts/interfaces/IFeeVault.sol",
-  "buildInfoId": "solc-0_8_24-09f59ff99871a1c50df726f3227da91cf885a75d"
+  "buildInfoId": "solc-0_8_24-5869f655642f4453cb7a1ae3a723731b073f53e7"
 }

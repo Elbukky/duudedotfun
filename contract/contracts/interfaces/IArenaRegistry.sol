@@ -2,14 +2,10 @@
 pragma solidity ^0.8.24;
 
 interface IArenaRegistry {
-    struct BattleInfo {
-        uint256 battleId;
-        uint256 startTime;
-        uint256 endTime;
-        address[] participants;
-        bool resolved;
-        address winner;
-        address winnerCreator;
+    struct Participant {
+        address token;
+        address curve;
+        address creator;
     }
 
     struct LeaderboardEntry {
@@ -27,7 +23,17 @@ interface IArenaRegistry {
     function onGraduation(address token) external;
     function resolveBattle(uint256 battleId) external;
 
-    function getCurrentBattle() external view returns (BattleInfo memory);
+    function getCurrentBattle() external view returns (
+        uint256 battleId,
+        uint256 startTime,
+        uint256 endTime,
+        uint256 participantCount,
+        bool    resolved,
+        address winner,
+        address winnerCreator
+    );
+    function getBattleParticipants(uint256 battleId) external view returns (Participant[] memory);
     function getBattleLeaderboard(uint256 battleId) external view returns (LeaderboardEntry[] memory);
     function getCreatorArenaRecord(address creator) external view returns (CreatorRecord memory);
+    function battleCount() external view returns (uint256);
 }

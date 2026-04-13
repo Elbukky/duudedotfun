@@ -13,28 +13,27 @@ import "./interfaces/IFeeVault.sol";
 /// @notice Created by PostMigrationFactory after a token graduates.
 ///         LP token is this ERC-20 itself (cloneable via EIP-1167).
 ///
-///  Fee schedule
+///  Fee schedule — ALWAYS 0.40 % total (no variable rate)
 ///  ────────────────────────────────────────────────────────
-///  activeLPSupply > 0 → 0.5 % total
-///     protocol 0.20 %  ·  creator 0.10 %  ·  LP 0.20 %
-///  activeLPSupply == 0 → 0.30 % total
-///     protocol 0.20 %  ·  creator 0.10 %
+///  protocol  0.20 %  ·  creator 0.05 %  ·  LP 0.15 %
 ///  ────────────────────────────────────────────────────────
-///  LP fees stay in the pool and are distributed via a
-///  fee-per-share accumulator (claimable separately).
+///  When activeLPSupply == 0 the LP portion redirects to protocol.
+///
+///  ALL fee USDC is held by FeeVault (single custody).
+///  This contract holds only AMM reserve USDC — zero fee USDC.
+///  LP fees are tracked via a fee-per-share accumulator here,
+///  but actual payouts go through FeeVault.releaseLPFee().
 contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* ══════════════════════════════════════════════════════════════════
        CONSTANTS
     ══════════════════════════════════════════════════════════════════ */
+    uint256 public constant TOTAL_FEE_BPS    = 40;  // 0.40 % always
     uint256 public constant PROTOCOL_FEE_BPS = 20;  // 0.20 %
-    uint256 public constant CREATOR_FEE_BPS  = 10;  // 0.10 %
-    uint256 public constant LP_FEE_BPS       = 20;  // 0.20 %
+    uint256 public constant CREATOR_FEE_BPS  =  5;  // 0.05 %
+    uint256 public constant LP_FEE_BPS       = 15;  // 0.15 %
     uint256 private constant BPS = 10_000;
-
-    uint256 private constant FEE_WITH_LP    = PROTOCOL_FEE_BPS + CREATOR_FEE_BPS + LP_FEE_BPS; // 50
-    uint256 private constant FEE_WITHOUT_LP = PROTOCOL_FEE_BPS + CREATOR_FEE_BPS;              // 30
 
     address private constant DEAD = address(0xdEaD);
     uint256 private constant LP_PRECISION = 1e18;
@@ -178,12 +177,10 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         require((tokenOut > 0) != (usdcOut > 0), "Pool: exactly one output");
         require(to != address(0), "Pool: zero address");
 
-        uint256 totalFeeBps = _getTotalFeeBps();
-
         if (tokenOut > 0) {
-            _swapUSDCForTokens(tokenOut, to, maxIn, totalFeeBps);
+            _swapUSDCForTokens(tokenOut, to, maxIn);
         } else {
-            _swapTokensForUSDC(usdcOut, to, maxIn, totalFeeBps);
+            _swapTokensForUSDC(usdcOut, to, maxIn);
         }
     }
 
@@ -191,8 +188,7 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
     function _swapUSDCForTokens(
         uint256 tokenOut,
         address to,
-        uint256 maxIn,
-        uint256 totalFeeBps
+        uint256 maxIn
     ) internal {
         require(tokenOut < tokenReserve, "Pool: insufficient token reserve");
 
@@ -200,9 +196,9 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         uint256 usdcInNet = (usdcReserve * tokenOut + (tokenReserve - tokenOut - 1))
                             / (tokenReserve - tokenOut); // round up
 
-        // gross = net / (1 − feePct)  →  net * BPS / (BPS − totalFeeBps)  round up
-        uint256 usdcInGross = (usdcInNet * BPS + (BPS - totalFeeBps - 1))
-                              / (BPS - totalFeeBps);
+        // gross = net / (1 − feePct)  →  net * BPS / (BPS − TOTAL_FEE_BPS)  round up
+        uint256 usdcInGross = (usdcInNet * BPS + (BPS - TOTAL_FEE_BPS - 1))
+                              / (BPS - TOTAL_FEE_BPS);
         uint256 totalFee = usdcInGross - usdcInNet;
 
         require(msg.value >= usdcInGross, "Pool: insufficient USDC sent");
@@ -212,8 +208,8 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         tokenReserve -= tokenOut;
         usdcReserve  += usdcInNet;
 
-        // fee distribution
-        _distributeFees(totalFee, totalFeeBps);
+        // fee distribution → ALL to FeeVault
+        _distributeFees(totalFee);
 
         // send tokens to buyer
         IERC20(token).safeTransfer(to, tokenOut);
@@ -232,13 +228,12 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
     function _swapTokensForUSDC(
         uint256 usdcOut,
         address to,
-        uint256 maxIn,
-        uint256 totalFeeBps
+        uint256 maxIn
     ) internal {
         // gross USDC that must leave reserves (before fee split)
         // usdcOut is net (what receiver gets); gross = out / (1 - fee%)
-        uint256 usdcOutGross = (usdcOut * BPS + (BPS - totalFeeBps - 1))
-                               / (BPS - totalFeeBps);
+        uint256 usdcOutGross = (usdcOut * BPS + (BPS - TOTAL_FEE_BPS - 1))
+                               / (BPS - TOTAL_FEE_BPS);
         uint256 totalFee = usdcOutGross - usdcOut;
 
         require(usdcOutGross <= usdcReserve, "Pool: insufficient USDC reserve");
@@ -255,7 +250,9 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
 
         // interactions
         IERC20(token).safeTransferFrom(msg.sender, address(this), tokensIn);
-        _distributeFees(totalFee, totalFeeBps);
+
+        // fee distribution → ALL to FeeVault
+        _distributeFees(totalFee);
 
         (bool ok, ) = to.call{value: usdcOut}("");
         require(ok, "Pool: transfer failed");
@@ -310,9 +307,6 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
             (bool ok, ) = msg.sender.call{value: refundUSDC}("");
             require(ok, "Pool: refund failed");
         }
-
-        // refund excess tokens (if tokenAmount > actualToken the user sent too many)
-        // — not needed: safeTransferFrom only pulls `actualToken`
 
         emit LiquidityAdded(msg.sender, to, actualToken, actualUSDC, lpToMint);
     }
@@ -371,8 +365,9 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         if (amount == 0) return;
 
         lpFeeClaimable[user] = 0;
-        (bool ok, ) = user.call{value: amount}("");
-        require(ok, "Pool: fee transfer failed");
+
+        // Release from FeeVault (which holds the actual USDC)
+        IFeeVault(feeVault).releaseLPFee(user, amount);
         emit LPFeesClaimed(user, amount);
     }
 
@@ -380,18 +375,15 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
        FEE DISTRIBUTION (internal)
     ══════════════════════════════════════════════════════════════════ */
 
-    function _getTotalFeeBps() internal view returns (uint256) {
-        return _activeLPSupply() > 0 ? FEE_WITH_LP : FEE_WITHOUT_LP;
-    }
-
     function _activeLPSupply() internal view returns (uint256) {
         return totalSupply() - burnedLP;
     }
 
     /// @dev Split `totalFee` native USDC among protocol, creator, (LP).
-    ///      Protocol + creator portions are pushed to FeeVault.
-    ///      LP portion stays in the pool and updates the accumulator.
-    function _distributeFees(uint256 totalFee, uint256 totalFeeBps) internal {
+    ///      ALL USDC is sent to FeeVault in a single call.
+    ///      When there are no active LP providers, the LP portion
+    ///      is redirected to protocol (prevents stuck funds).
+    function _distributeFees(uint256 totalFee) internal {
         if (totalFee == 0) return;
 
         uint256 activeLP = _activeLPSupply();
@@ -400,29 +392,29 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         uint256 lpFee;
 
         if (activeLP > 0) {
-            protocolFee = (totalFee * PROTOCOL_FEE_BPS) / totalFeeBps;
-            creatorFee  = (totalFee * CREATOR_FEE_BPS)  / totalFeeBps;
-            lpFee       = totalFee - protocolFee - creatorFee; // remainder → LP
+            // Standard 3-way split
+            protocolFee = (totalFee * PROTOCOL_FEE_BPS) / TOTAL_FEE_BPS;
+            creatorFee  = (totalFee * CREATOR_FEE_BPS)  / TOTAL_FEE_BPS;
+            lpFee       = totalFee - protocolFee - creatorFee; // remainder → LP (handles dust)
         } else {
-            protocolFee = (totalFee * PROTOCOL_FEE_BPS) / totalFeeBps;
-            creatorFee  = totalFee - protocolFee; // remainder → creator
+            // No active LPs — LP portion redirected to protocol
+            protocolFee = (totalFee * (PROTOCOL_FEE_BPS + LP_FEE_BPS)) / TOTAL_FEE_BPS;
+            creatorFee  = totalFee - protocolFee; // remainder → creator (handles dust)
         }
 
-        // push protocol + creator to FeeVault
-        uint256 vaultAmount = protocolFee + creatorFee;
-        if (vaultAmount > 0) {
-            IFeeVault(feeVault).depositSplitFee{value: vaultAmount}(
-                creator,
-                referrer,
-                protocolFee,
-                creatorFee
-            );
-        }
-
-        // LP fee stays in contract balance, update accumulator
+        // Update fee-per-share accumulator BEFORE depositing to vault
         if (lpFee > 0 && activeLP > 0) {
             lpFeePerShareAccumulated += (lpFee * LP_PRECISION) / activeLP;
         }
+
+        // ALL fees go to FeeVault in one call
+        IFeeVault(feeVault).depositFee{value: totalFee}(
+            creator,
+            referrer,
+            protocolFee,
+            creatorFee,
+            lpFee
+        );
     }
 
     /* ══════════════════════════════════════════════════════════════════
@@ -461,6 +453,6 @@ contract PostMigrationPool is ERC20Upgradeable, ReentrancyGuard {
         spotPrice_      = tokenReserve > 0 ? (usdcReserve * 1e18) / tokenReserve : 0;
     }
 
-    /* ── accept native USDC ────────────────────────────────────────── */
+    /* ── accept native USDC (needed for receiving USDC during swaps/liquidity) ── */
     receive() external payable {}
 }

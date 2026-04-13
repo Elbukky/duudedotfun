@@ -5,14 +5,14 @@ import { ExternalLink } from "lucide-react";
 const EXPLORER = "https://testnet.arcscan.app/address";
 
 const contracts = [
-  { name: "TokenFactory", address: "0x21c1eD19E091aB31D34Ae1546edef79584773924" },
-  { name: "FeeVault", address: "0xE51456E01CB44e9B656c5D54BE22bBEC3A0f252B" },
-  { name: "ArenaRegistry", address: "0xcFaED45786554bF62870546f47349A1120F66a67" },
-  { name: "PostMigrationFactory", address: "0xE87b516980247b07f01f9BC28d0B605Ab341f9d2" },
-  { name: "BondingCurve (impl)", address: "0x9Dfca88207966a2180c5f59F70bF2eC86793E5Ef" },
-  { name: "PostMigrationPool (impl)", address: "0xdE73aF09a0DDC32e228Da97e2b60F369b5BA4CE5" },
-  { name: "LaunchToken (impl)", address: "0x65e9Dd20FA6F1643fB0199b69421A61E4e5660b9" },
-  { name: "VestingVault (impl)", address: "0xf256b373e17E58EA6E24c30A2975320254a7bBA7" },
+  { name: "TokenFactory", address: "0x3c7e1cfF5EE3D7769dD5250eE0A215f1ef04675b" },
+  { name: "FeeVault", address: "0xa29Ca2aF359988DfBf33962F289D621CdE367b9A" },
+  { name: "ArenaRegistry", address: "0x1375729eB51321dFd793e38AdA0833FD2EDE8379" },
+  { name: "PostMigrationFactory", address: "0xd7cC241BA0c8432164867b9D822d36782d005076" },
+  { name: "BondingCurve (impl)", address: "0x85Db3e7fe6DD58b239096247228Ebd51540A1581" },
+  { name: "PostMigrationPool (impl)", address: "0xC2c03A967dd463dc694061F63aD43063b48FcC20" },
+  { name: "LaunchToken (impl)", address: "0xA1048d4737ec2662d66f6202A2B65e9889cDcC30" },
+  { name: "VestingVault (impl)", address: "0x59308EC8A6d5B96e0Ec5F5a106Ce7610DF339512" },
 ];
 
 const shortAddr = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`;
@@ -39,7 +39,7 @@ const Docs = () => (
       <Section title="Features" delay={0.05}>
         <ul className="space-y-1.5 text-sm text-muted-foreground font-body">
           <Li>One-click token launch with bonding curve pricing</Li>
-          <Li>Automatic graduation to DEX (Uni V2-style AMM) at 2,500 USDC</Li>
+          <Li>Automatic graduation to DEX (Uni V2-style AMM) at 5,000 USDC</Li>
           <Li>Arena battles — 24h ranked competitions for new tokens</Li>
           <Li>On-chain Hype Score (holders, buyers, volume, pressure, retention)</Li>
           <Li>Post-graduation LP management (add/remove liquidity, claim fees)</Li>
@@ -90,8 +90,8 @@ const Docs = () => (
       <Section title="Key Parameters" delay={0.15}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Param label="Token Supply" value="100,000,000,000 (100B)" />
-          <Param label="Graduation Target" value="2,500 USDC (net)" />
-          <Param label="Virtual USDC (K)" value="300 USDC" />
+          <Param label="Graduation Target" value="5,000 USDC (net)" />
+          <Param label="Virtual USDC (K)" value="500 USDC" />
           <Param label="Virtual Tokens (K)" value="100B tokens" />
           <Param label="Creator Min Buy" value="1 USDC at launch" />
           <Param label="Max Beneficiary Alloc" value="5% (500 bps)" />
@@ -116,11 +116,15 @@ const Docs = () => (
             <tbody className="text-muted-foreground font-body text-xs">
               <tr className="border-t border-primary/10">
                 <td className="p-2.5">Protocol (FeeVault)</td>
-                <td className="p-2.5 text-primary font-semibold">0.3%</td>
+                <td className="p-2.5 text-primary font-semibold">0.40%</td>
               </tr>
               <tr className="border-t border-primary/10">
                 <td className="p-2.5">Creator</td>
-                <td className="p-2.5">0% (nothing during bonding)</td>
+                <td className="p-2.5 text-primary font-semibold">0.20% (with referral carve-out)</td>
+              </tr>
+              <tr className="border-t border-primary/10 font-semibold">
+                <td className="p-2.5 text-foreground">Total</td>
+                <td className="p-2.5 text-primary">0.60%</td>
               </tr>
             </tbody>
           </table>
@@ -132,30 +136,25 @@ const Docs = () => (
             <thead>
               <tr className="bg-primary/10">
                 <th className="text-left p-2.5 text-foreground font-display text-xs">Recipient</th>
-                <th className="text-left p-2.5 text-foreground font-display text-xs">With Active LPs</th>
-                <th className="text-left p-2.5 text-foreground font-display text-xs">No Active LPs</th>
+                <th className="text-left p-2.5 text-foreground font-display text-xs">Fee (always)</th>
               </tr>
             </thead>
             <tbody className="text-muted-foreground font-body text-xs">
               <tr className="border-t border-primary/10">
                 <td className="p-2.5">Protocol</td>
-                <td className="p-2.5 text-primary font-semibold">0.2%</td>
-                <td className="p-2.5 text-primary font-semibold">0.2%</td>
+                <td className="p-2.5 text-primary font-semibold">0.20%</td>
               </tr>
               <tr className="border-t border-primary/10">
                 <td className="p-2.5">Creator</td>
-                <td className="p-2.5 text-primary font-semibold">0.1%</td>
-                <td className="p-2.5 text-primary font-semibold">0.1%</td>
+                <td className="p-2.5 text-primary font-semibold">0.05%</td>
               </tr>
               <tr className="border-t border-primary/10">
                 <td className="p-2.5">LP Providers</td>
-                <td className="p-2.5 text-primary font-semibold">0.2%</td>
-                <td className="p-2.5">0%</td>
+                <td className="p-2.5 text-primary font-semibold">0.15% (redirected to protocol when no active LPs)</td>
               </tr>
               <tr className="border-t border-primary/10 font-semibold">
                 <td className="p-2.5 text-foreground">Total</td>
-                <td className="p-2.5 text-primary">0.5%</td>
-                <td className="p-2.5 text-primary">0.3%</td>
+                <td className="p-2.5 text-primary">0.40%</td>
               </tr>
             </tbody>
           </table>

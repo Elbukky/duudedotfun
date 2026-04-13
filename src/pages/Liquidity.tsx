@@ -519,7 +519,7 @@ const Liquidity = () => {
                 No graduated tokens yet
               </p>
               <p className="text-muted-foreground font-body mb-6">
-                Tokens need to reach 2,500 USDC in bonding to graduate to the DEX pool.
+                Tokens need to reach 5,000 USDC in bonding to graduate to the DEX pool.
               </p>
               <Link to="/" className="text-primary font-body hover:underline">
                 Browse tokens
@@ -580,16 +580,16 @@ const Liquidity = () => {
                 <h3 className="font-display text-sm text-foreground mb-2">HOW FEES WORK</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-body text-muted-foreground">
                   <div>
-                    <p className="text-foreground font-display text-base mb-1">0.5%</p>
-                    <p>Total swap fee when LP is active</p>
+                    <p className="text-foreground font-display text-base mb-1">0.40%</p>
+                    <p>Total swap fee (always fixed)</p>
                   </div>
                   <div>
-                    <p className="text-foreground font-display text-base mb-1">0.2%</p>
+                    <p className="text-foreground font-display text-base mb-1">0.15%</p>
                     <p>Goes to LP providers (you!)</p>
                   </div>
                   <div>
-                    <p className="text-foreground font-display text-base mb-1">0.3%</p>
-                    <p>Split between protocol (0.2%) and creator (0.1%)</p>
+                    <p className="text-foreground font-display text-base mb-1">0.25%</p>
+                    <p>Split between protocol (0.20%) and creator (0.05%)</p>
                   </div>
                 </div>
               </motion.div>

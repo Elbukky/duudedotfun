@@ -24,7 +24,7 @@ import { toast } from "sonner";
 // ── Constants ──────────────────────────────────────────────
 const PAGE_SIZE = 25;
 const TOTAL_SUPPLY = 100_000_000_000; // 100B tokens
-const INITIAL_PRICE = 3e-9; // VIRTUAL_USDC / VIRTUAL_TOKENS = 300 / 100B
+const INITIAL_PRICE = 5e-9; // VIRTUAL_USDC / VIRTUAL_TOKENS = 500 / 100B
 const QUOTE_DEBOUNCE_MS = 300;
 
 // Arcscan API for 24h data
@@ -433,7 +433,7 @@ const Explore = () => {
               readProvider
             ).getPoolStats();
             const [tokenReserve, usdcReserve, , activeLPSupply] = stats;
-            const feeBps = activeLPSupply > 0n ? 50n : 30n;
+            const feeBps = 40n;
             const net = amountWei - (amountWei * feeBps) / 10000n;
             const out = (net * tokenReserve) / (usdcReserve + net);
             setQuoteResult(
@@ -455,7 +455,7 @@ const Explore = () => {
               readProvider
             ).getPoolStats();
             const [tokenReserve, usdcReserve, , activeLPSupply] = stats;
-            const feeBps = activeLPSupply > 0n ? 50n : 30n;
+            const feeBps = 40n;
             const gross =
               (amountWei * usdcReserve) / (tokenReserve + amountWei);
             const out = gross - (gross * feeBps) / 10000n;

@@ -5,11 +5,26 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-/// @title FeeVault — central fee collection & distribution
-/// @notice Bonding curves deposit protocol-only fees; post-migration pools
-///         deposit 3-way split fees (protocol + creator; referrer share is
-///         carved out of the creator portion inside this contract).
-///         Protocol fees are split evenly (1/N) among all owners.
+/// @title FeeVault — **single custody** for every fee on the platform
+/// @notice ALL protocol / creator / referrer / LP-provider fees flow through
+///         this contract.  Nothing stays in pool contracts.
+///
+///  Deposit paths
+///  ─────────────────────────────────────────────────────────────────
+///  BondingCurve  → depositFee(creator, referrer, pAmt, cAmt, 0)
+///  PostMigPool   → depositFee(creator, referrer, pAmt, cAmt, lpAmt)
+///  ─────────────────────────────────────────────────────────────────
+///
+///  LP fee custody
+///  ─────────────────────────────────────────────────────────────────
+///  LP fees are held here, keyed by pool address.  The pool's own
+///  fee-per-share accumulator decides *who* gets *how much*; the pool
+///  then calls `releaseLPFee(user, amount)` and this contract pays out.
+///  ─────────────────────────────────────────────────────────────────
+///
+///  Protocol fees are split evenly (1/N) among all owners.
+///  Creator fees are optionally split with a referrer (20 % of creator
+///  share → referrer, if one exists).
 contract FeeVault is Ownable {
     using SafeERC20 for IERC20;
 
@@ -22,6 +37,9 @@ contract FeeVault is Ownable {
     uint256 public protocolClaimable;
     mapping(address => uint256) public creatorClaimable;
     mapping(address => uint256) public referrerClaimable;
+
+    /* ── LP fee custody (keyed by pool address) ────────────────────── */
+    mapping(address => uint256) public lpPoolBalance;
 
     /* ── accounting ────────────────────────────────────────────────── */
     uint256 public totalAccountedUSDC;
@@ -36,17 +54,18 @@ contract FeeVault is Ownable {
     mapping(address => bool) public authorizedFactories;  // can authorize new sources
 
     /* ── events ────────────────────────────────────────────────────── */
-    event ProtocolFeeDeposited(address indexed source, uint256 amount);
-    event SplitFeeDeposited(
+    event FeeDeposited(
         address indexed source,
         address indexed creator,
         address indexed referrer,
         uint256 protocolAmt,
-        uint256 creatorAmt
+        uint256 creatorAmt,
+        uint256 lpAmt
     );
     event ProtocolFeesClaimed(address indexed to, uint256 amount);
     event CreatorFeesClaimed(address indexed creator, uint256 amount);
     event ReferrerFeesClaimed(address indexed referrer, uint256 amount);
+    event LPFeesReleased(address indexed pool, address indexed user, uint256 amount);
     event SourceAuthorized(address indexed source);
     event SourceRevoked(address indexed source);
     event FactoryAuthorized(address indexed factory_);
@@ -140,28 +159,32 @@ contract FeeVault is Ownable {
     }
 
     /* ══════════════════════════════════════════════════════════════════
-       DEPOSITS (only authorized curves / pools)
+       DEPOSITS — unified entry for every fee type
     ══════════════════════════════════════════════════════════════════ */
 
-    /// @notice Called by BondingCurve — all bonding-phase fees go to protocol.
-    function depositProtocolFee() external payable onlyAuthorized {
-        protocolClaimable += msg.value;
-        totalAccountedUSDC += msg.value;
-        emit ProtocolFeeDeposited(msg.sender, msg.value);
-    }
-
-    /// @notice Called by PostMigrationPool — protocol + creator portions.
-    ///         Referrer share is carved from the creator amount internally.
-    function depositSplitFee(
+    /// @notice Universal fee deposit.  Called by BondingCurves (lpAmt = 0)
+    ///         and PostMigrationPools (lpAmt > 0).
+    /// @param creator   Token creator address
+    /// @param referrer  Referrer address (address(0) if none)
+    /// @param protocolAmt  Amount destined for protocol owners
+    /// @param creatorAmt   Amount destined for creator (referrer carve-out applied here)
+    /// @param lpAmt        Amount destined for LP providers of the calling pool
+    function depositFee(
         address creator,
         address referrer,
         uint256 protocolAmt,
-        uint256 creatorAmt
+        uint256 creatorAmt,
+        uint256 lpAmt
     ) external payable onlyAuthorized {
-        require(msg.value == protocolAmt + creatorAmt, "FeeVault: value mismatch");
+        require(
+            msg.value == protocolAmt + creatorAmt + lpAmt,
+            "FeeVault: value mismatch"
+        );
 
+        // ── protocol ──
         protocolClaimable += protocolAmt;
 
+        // ── creator + referrer ──
         if (referrer != address(0) && creatorAmt > 0) {
             uint256 referrerShare = (creatorAmt * REFERRAL_SHARE_OF_CREATOR) / BPS;
             uint256 creatorNet = creatorAmt - referrerShare;
@@ -171,8 +194,31 @@ contract FeeVault is Ownable {
             creatorClaimable[creator] += creatorAmt;
         }
 
+        // ── LP (keyed by calling pool) ──
+        if (lpAmt > 0) {
+            lpPoolBalance[msg.sender] += lpAmt;
+        }
+
         totalAccountedUSDC += msg.value;
-        emit SplitFeeDeposited(msg.sender, creator, referrer, protocolAmt, creatorAmt);
+        emit FeeDeposited(msg.sender, creator, referrer, protocolAmt, creatorAmt, lpAmt);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       LP FEE RELEASE — called by the pool after its fee-per-share math
+    ══════════════════════════════════════════════════════════════════ */
+
+    /// @notice A pool calls this to pay out LP fees to a specific user.
+    ///         The pool is responsible for the distribution math; this
+    ///         contract only verifies that the pool has enough deposited
+    ///         LP fees and transfers to the user.
+    /// @param user   Recipient LP provider
+    /// @param amount USDC amount to release
+    function releaseLPFee(address user, uint256 amount) external onlyAuthorized {
+        require(lpPoolBalance[msg.sender] >= amount, "FeeVault: insufficient LP pool balance");
+        lpPoolBalance[msg.sender] -= amount;
+        totalAccountedUSDC -= amount;
+        _sendNative(user, amount);
+        emit LPFeesReleased(msg.sender, user, amount);
     }
 
     /* ══════════════════════════════════════════════════════════════════

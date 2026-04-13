@@ -10,22 +10,28 @@ import "./interfaces/IFeeVault.sol";
 import "./interfaces/IPostMigrationFactory.sol";
 
 /// @title BondingCurve — virtual-reserve constant-product curve (pump.fun style)
-/// @notice VIRTUAL_USDC = 300, graduation at 2 500 USDC net raised.
-///         0.3 % fee on every trade → protocol only (no creator/referral in
-///         bonding phase). Graduation supports partial-fill so the last buy
-///         never overshoots. Tracks rich arena-metrics on-chain.
+/// @notice VIRTUAL_USDC = 500, graduation at 5 000 USDC net raised.
+///         0.60 % fee on every trade, split:
+///           0.40 % → platform  (FeeVault protocol pool)
+///           0.20 % → creator   (FeeVault creator pool, with referral carve-out)
+///         Graduation supports partial-fill so the last buy never overshoots.
+///         Tracks rich arena-metrics on-chain.
+///         ALL fees flow to FeeVault — this contract never holds fee USDC.
 contract BondingCurve is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* ══════════════════════════════════════════════════════════════════
        CONSTANTS
     ══════════════════════════════════════════════════════════════════ */
-    uint256 public constant VIRTUAL_USDC   = 300e18;
+    uint256 public constant VIRTUAL_USDC   = 500e18;
     uint256 public constant VIRTUAL_TOKENS = 100_000_000_000e18;  // 100 B
-    uint256 public constant K              = VIRTUAL_USDC * VIRTUAL_TOKENS; // 3 e49
-    uint256 public constant GRADUATION_TARGET = 2_500e18;
-    uint256 public constant FEE_BPS = 30;   // 0.3 %
-    uint256 private constant BPS    = 10_000;
+    uint256 public constant K              = VIRTUAL_USDC * VIRTUAL_TOKENS; // 5 e49
+    uint256 public constant GRADUATION_TARGET = 5_000e18;
+
+    uint256 public constant FEE_BPS          = 60;  // 0.60 % total
+    uint256 public constant PROTOCOL_FEE_BPS = 40;  // 0.40 % → platform
+    uint256 public constant CREATOR_FEE_BPS  = 20;  // 0.20 % → creator
+    uint256 private constant BPS = 10_000;
 
     /* ══════════════════════════════════════════════════════════════════
        STORAGE  (set once via initialize)
@@ -143,7 +149,7 @@ contract BondingCurve is ReentrancyGuard {
         uint256 refund;
 
         if (usdcNet >= remaining) {
-            // only use what is needed to reach exactly 1 500 USDC
+            // only use what is needed to reach exactly 5 000 USDC
             uint256 usdcToUse = remaining;
             // gross amount that produces `usdcToUse` net after fee
             uint256 grossUsed = (usdcToUse * BPS + (BPS - FEE_BPS - 1)) / (BPS - FEE_BPS);
@@ -182,9 +188,9 @@ contract BondingCurve is ReentrancyGuard {
         emit Buy(msg.sender, recipient, usdcNet, tokensOut, fee);
 
         /* ── interactions ─────────────────────────────────────────── */
-        // 1. fee → FeeVault
+        // 1. fee → FeeVault (split: protocol + creator, lpAmt = 0)
         if (fee > 0) {
-            IFeeVault(feeVault).depositProtocolFee{value: fee}();
+            _depositFee(fee);
         }
 
         // 2. tokens → recipient
@@ -248,14 +254,33 @@ contract BondingCurve is ReentrancyGuard {
         // 1. pull tokens from seller
         IERC20(token).safeTransferFrom(msg.sender, address(this), tokensIn);
 
-        // 2. fee → FeeVault
+        // 2. fee → FeeVault (split: protocol + creator, lpAmt = 0)
         if (fee > 0) {
-            IFeeVault(feeVault).depositProtocolFee{value: fee}();
+            _depositFee(fee);
         }
 
         // 3. USDC → seller
         (bool ok, ) = msg.sender.call{value: usdcOutNet}("");
         require(ok, "BondingCurve: transfer failed");
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       FEE SPLIT HELPER
+    ══════════════════════════════════════════════════════════════════ */
+
+    /// @dev Split `totalFee` into protocol + creator portions and deposit
+    ///      to FeeVault.  Uses remainder pattern to avoid rounding loss.
+    function _depositFee(uint256 totalFee) internal {
+        uint256 protocolAmt = (totalFee * PROTOCOL_FEE_BPS) / FEE_BPS;
+        uint256 creatorAmt  = totalFee - protocolAmt; // remainder → creator (handles dust)
+
+        IFeeVault(feeVault).depositFee{value: totalFee}(
+            creator,
+            referrer,
+            protocolAmt,
+            creatorAmt,
+            0 // lpAmt = 0 during bonding phase
+        );
     }
 
     /* ══════════════════════════════════════════════════════════════════

@@ -4,6 +4,19 @@
   "sourceName": "contracts/interfaces/IArenaRegistry.sol",
   "abi": [
     {
+      "inputs": [],
+      "name": "battleCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -65,6 +78,42 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "battleId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getBattleParticipants",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "curve",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "creator",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct IArenaRegistry.Participant[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "creator",
           "type": "address"
@@ -98,46 +147,39 @@
       "name": "getCurrentBattle",
       "outputs": [
         {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "battleId",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "startTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "endTime",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address[]",
-              "name": "participants",
-              "type": "address[]"
-            },
-            {
-              "internalType": "bool",
-              "name": "resolved",
-              "type": "bool"
-            },
-            {
-              "internalType": "address",
-              "name": "winner",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "winnerCreator",
-              "type": "address"
-            }
-          ],
-          "internalType": "struct IArenaRegistry.BattleInfo",
-          "name": "",
-          "type": "tuple"
+          "internalType": "uint256",
+          "name": "battleId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "startTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "endTime",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "participantCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "resolved",
+          "type": "bool"
+        },
+        {
+          "internalType": "address",
+          "name": "winner",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "winnerCreator",
+          "type": "address"
         }
       ],
       "stateMutability": "view",
@@ -176,5 +218,5 @@
   "deployedLinkReferences": {},
   "immutableReferences": {},
   "inputSourceName": "project/contracts/interfaces/IArenaRegistry.sol",
-  "buildInfoId": "solc-0_8_24-09f59ff99871a1c50df726f3227da91cf885a75d"
+  "buildInfoId": "solc-0_8_24-5869f655642f4453cb7a1ae3a723731b073f53e7"
 }
