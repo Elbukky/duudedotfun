@@ -6,7 +6,7 @@
 //   - Sets chatVerified=true on profile so subsequent messages don't need signature
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDb, ensureIndexes } from "../lib/db";
+import { getDb, ensureIndexes } from "../lib/db.js";
 import { ethers } from "ethers";
 
 interface ArenaMessage {

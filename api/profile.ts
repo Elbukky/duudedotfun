@@ -4,7 +4,7 @@
 // POST /api/profile { address, username, displayName, avatarUrl } — upsert profile
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getDb, ensureIndexes } from "./lib/db";
+import { getDb, ensureIndexes } from "./lib/db.js";
 
 interface UserProfile {
   address: string; // lowercase wallet address (primary key)
