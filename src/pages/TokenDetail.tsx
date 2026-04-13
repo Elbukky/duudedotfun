@@ -541,169 +541,90 @@ const TokenDetail = () => {
             </motion.div>
           </AuraWrapper>
 
-          {/* Stats row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {[
-              {
-                icon: <BarChart3 size={14} />,
-                label: "Volume",
-                value: `$${formatNumber(totalVol)}`,
-              },
-              {
-                icon: <BarChart3 size={14} />,
-                label: "USDC Raised",
-                value: `$${formatNumber(raised)}`,
-              },
-              {
-                icon: <Users size={14} />,
-                label: "Holders",
-                value: holders.toLocaleString(),
-              },
-              {
-                icon: <Clock size={14} />,
-                label: "Unique Buyers",
-                value: uniqueBuyers.toLocaleString(),
-              },
-            ].map((s, i) => (
-              <motion.div
-                key={s.label}
-                className="card-cartoon text-center"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-              >
-                <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
-                  {s.icon}
-                  <span className="text-xs font-body">{s.label}</span>
-                </div>
-                <p className="font-display text-lg text-foreground">
-                  {s.value}
-                </p>
-              </motion.div>
-            ))}
+          {/* ── MOBILE: Trade panel first (visible only on mobile) ── */}
+          <div className="lg:hidden mb-6">
+            <BuySellPanel
+              curveAddress={curveAddress}
+              tokenAddress={address || null}
+              tokenSymbol={record.symbol}
+              graduated={graduated}
+              poolAddress={poolAddress}
+            />
           </div>
 
-          {/* Bonding curve */}
-          <motion.div
-            className="card-cartoon mb-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex justify-between mb-2">
-              <span className="text-xs font-body text-muted-foreground">
-                {graduated ? "Graduated to DEX" : "Bonding Curve Progress"}
-              </span>
-              <span className="text-xs font-display text-primary">
-                {graduated
-                  ? "100%"
-                  : `${bondingPct.toFixed(1)}%`}
-              </span>
-            </div>
-            <div className="progress-arcade h-5">
-              <motion.div
-                className="progress-arcade-fill"
-                initial={{ width: 0 }}
-                animate={{
-                  width: `${graduated ? 100 : bondingPct}%`,
-                }}
-                transition={{ duration: 1.5 }}
-              />
-            </div>
-            <div className="flex justify-between mt-2">
-              <p className="text-xs text-muted-foreground font-body">
-                {graduated
-                  ? "This token has graduated to the DEX pool."
-                  : bondingPct >= 80
-                    ? "Almost graduated! This token is about to hit DEX."
-                    : `${raised.toFixed(2)} / 2,500 USDC raised`}
-              </p>
-              <a
-                href={tokenLink(address || "")}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary font-body hover:underline flex items-center gap-1"
-              >
-                Explorer <ExternalLink size={10} />
-              </a>
-            </div>
-          </motion.div>
-
+          {/* ── Main 2-column grid ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main content */}
+
+            {/* ── LEFT COLUMN (2/3): Chart, Activity, Chat ── */}
             <div className="lg:col-span-2 space-y-6">
+
+              {/* Stats row */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  {
+                    icon: <BarChart3 size={14} />,
+                    label: "Volume",
+                    value: `$${formatNumber(totalVol)}`,
+                  },
+                  {
+                    icon: <BarChart3 size={14} />,
+                    label: "USDC Raised",
+                    value: `$${formatNumber(raised)}`,
+                  },
+                  {
+                    icon: <Users size={14} />,
+                    label: "Holders",
+                    value: holders.toLocaleString(),
+                  },
+                  {
+                    icon: <Clock size={14} />,
+                    label: "Unique Buyers",
+                    value: uniqueBuyers.toLocaleString(),
+                  },
+                ].map((s, i) => (
+                  <motion.div
+                    key={s.label}
+                    className="card-cartoon text-center"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <div className="flex items-center justify-center gap-1 text-muted-foreground mb-1">
+                      {s.icon}
+                      <span className="text-xs font-body">{s.label}</span>
+                    </div>
+                    <p className="font-display text-lg text-foreground">
+                      {s.value}
+                    </p>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Chart */}
               <CandlestickChart
                 curveAddress={curveAddress}
                 poolAddress={poolAddress}
                 currentPrice={price}
                 graduated={graduated}
               />
-              <BuySellPanel
+
+              {/* Activity Feed */}
+              <ActivityFeed
                 curveAddress={curveAddress}
-                tokenAddress={address || null}
-                tokenSymbol={record.symbol}
-                graduated={graduated}
                 poolAddress={poolAddress}
+                tokenSymbol={record.symbol}
               />
 
-              {/* DEX Liquidity Info — shown when graduated */}
-              {graduated && poolStats && (
-                <div className="card-cartoon">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Droplets size={14} className="text-primary" />
-                    <h3 className="font-display text-sm text-foreground">
-                      DEX LIQUIDITY
-                    </h3>
-                    <Link
-                      to="/liquidity"
-                      className="ml-auto text-[10px] font-body text-primary hover:underline flex items-center gap-1"
-                    >
-                      Manage <ExternalLink size={9} />
-                    </Link>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div className="bg-muted/30 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground font-body">Token Reserve</p>
-                      <p className="font-display text-sm text-foreground">
-                        {formatTokenAmount(poolStats.tokenReserve)}
-                      </p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground font-body">USDC Reserve</p>
-                      <p className="font-display text-sm text-foreground">
-                        {formatUSDC(poolStats.usdcReserve, 2)}
-                      </p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground font-body">Total LP Supply</p>
-                      <p className="font-display text-sm text-foreground">
-                        {parseFloat(ethers.formatEther(poolStats.totalLPSupply)) < 0.01
-                          ? parseFloat(ethers.formatEther(poolStats.totalLPSupply)).toExponential(2)
-                          : formatNumber(parseFloat(ethers.formatEther(poolStats.totalLPSupply)))}
-                      </p>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground font-body">Spot Price</p>
-                      <p className="font-display text-sm text-foreground">
-                        {formatPrice(poolStats.spotPrice)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs font-body">
-                    <span className="text-muted-foreground">
-                      Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
-                      {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
-                    </span>
-                    <span className="text-muted-foreground">
-                      DEX Vol: ${formatNumber(postMigrationVolume)}
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* Chat */}
+              <ChatBox
+                title={`${record.symbol} CHAT`}
+                mode="token"
+                tokenAddress={address}
+              />
 
+              {/* ── Secondary content: Arena, Missions, HypeScore (below chat) ── */}
               <HypeScoreWidget score={hypeScore} />
 
-              {/* Arena Status */}
               {arenaMetrics && (
                 <div className="card-cartoon">
                   <h3 className="font-display text-sm text-foreground mb-3">
@@ -746,7 +667,6 @@ const TokenDetail = () => {
                 </div>
               )}
 
-              {/* Missions */}
               {missions.length > 0 && (
                 <div>
                   <h3 className="font-display text-sm text-foreground mb-3">
@@ -759,187 +679,563 @@ const TokenDetail = () => {
                   </div>
                 </div>
               )}
-
-              <ActivityFeed
-                curveAddress={curveAddress}
-                poolAddress={poolAddress}
-                tokenSymbol={record.symbol}
-              />
-              <ChatBox
-                title={`${record.symbol} CHAT`}
-                mode="token"
-                tokenAddress={address}
-              />
             </div>
 
-            {/* Sidebar */}
+            {/* ── RIGHT COLUMN (1/3): Trade (sticky), Bonding, Info, Holders ── */}
             <div className="space-y-6">
-              {/* Contract Addresses */}
-              <div className="card-cartoon">
-                <h3 className="font-display text-xs text-muted-foreground mb-3">
-                  CONTRACTS
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Token</span>
-                    <a
-                      href={addressLink(record.token)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1"
-                    >
-                      {shortAddress(record.token)}{" "}
-                      <ExternalLink size={10} />
-                    </a>
-                  </div>
-                  <div className="flex items-center justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Curve</span>
-                    <a
-                      href={addressLink(record.curve)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1"
-                    >
-                      {shortAddress(record.curve)}{" "}
-                      <ExternalLink size={10} />
-                    </a>
-                  </div>
-                  {graduated && record.migrationPool !== ethers.ZeroAddress && (
-                    <div className="flex items-center justify-between text-xs font-body">
-                      <span className="text-muted-foreground">DEX Pool</span>
+
+              {/* Trade panel — desktop only (sticky), hidden on mobile (shown above) */}
+              <div className="hidden lg:block lg:sticky lg:top-24">
+                <div className="space-y-6">
+                  <BuySellPanel
+                    curveAddress={curveAddress}
+                    tokenAddress={address || null}
+                    tokenSymbol={record.symbol}
+                    graduated={graduated}
+                    poolAddress={poolAddress}
+                  />
+
+                  {/* Bonding curve progress */}
+                  <motion.div
+                    className="card-cartoon"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <div className="flex justify-between mb-2">
+                      <span className="text-xs font-body text-muted-foreground">
+                        {graduated ? "Graduated to DEX" : "Bonding Curve Progress"}
+                      </span>
+                      <span className="text-xs font-display text-primary">
+                        {graduated
+                          ? "100%"
+                          : `${bondingPct.toFixed(1)}%`}
+                      </span>
+                    </div>
+                    <div className="progress-arcade h-5">
+                      <motion.div
+                        className="progress-arcade-fill"
+                        initial={{ width: 0 }}
+                        animate={{
+                          width: `${graduated ? 100 : bondingPct}%`,
+                        }}
+                        transition={{ duration: 1.5 }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-2">
+                      <p className="text-xs text-muted-foreground font-body">
+                        {graduated
+                          ? "This token has graduated to the DEX pool."
+                          : bondingPct >= 80
+                            ? "Almost graduated!"
+                            : `${raised.toFixed(2)} / 2,500 USDC`}
+                      </p>
                       <a
-                        href={addressLink(record.migrationPool)}
+                        href={tokenLink(address || "")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary font-body hover:underline flex items-center gap-1"
+                      >
+                        Explorer <ExternalLink size={10} />
+                      </a>
+                    </div>
+                  </motion.div>
+
+                  {/* DEX Liquidity Info — shown when graduated */}
+                  {graduated && poolStats && (
+                    <div className="card-cartoon">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Droplets size={14} className="text-primary" />
+                        <h3 className="font-display text-sm text-foreground">
+                          DEX LIQUIDITY
+                        </h3>
+                        <Link
+                          to="/liquidity"
+                          className="ml-auto text-[10px] font-body text-primary hover:underline flex items-center gap-1"
+                        >
+                          Manage <ExternalLink size={9} />
+                        </Link>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-muted/30 rounded-lg p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground font-body">Token Reserve</p>
+                          <p className="font-display text-sm text-foreground">
+                            {formatTokenAmount(poolStats.tokenReserve)}
+                          </p>
+                        </div>
+                        <div className="bg-muted/30 rounded-lg p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground font-body">USDC Reserve</p>
+                          <p className="font-display text-sm text-foreground">
+                            {formatUSDC(poolStats.usdcReserve, 2)}
+                          </p>
+                        </div>
+                        <div className="bg-muted/30 rounded-lg p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground font-body">LP Supply</p>
+                          <p className="font-display text-sm text-foreground">
+                            {parseFloat(ethers.formatEther(poolStats.totalLPSupply)) < 0.01
+                              ? parseFloat(ethers.formatEther(poolStats.totalLPSupply)).toExponential(2)
+                              : formatNumber(parseFloat(ethers.formatEther(poolStats.totalLPSupply)))}
+                          </p>
+                        </div>
+                        <div className="bg-muted/30 rounded-lg p-2 text-center">
+                          <p className="text-[10px] text-muted-foreground font-body">Spot Price</p>
+                          <p className="font-display text-sm text-foreground">
+                            {formatPrice(poolStats.spotPrice)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs font-body">
+                        <span className="text-muted-foreground">
+                          Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
+                          {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
+                        </span>
+                        <span className="text-muted-foreground">
+                          DEX Vol: ${formatNumber(postMigrationVolume)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top Holders */}
+                  {topHolders.length > 0 && (
+                    <div className="card-cartoon">
+                      <h3 className="font-display text-xs text-muted-foreground mb-3">
+                        <Users size={12} className="inline mr-1" />
+                        TOP HOLDERS
+                      </h3>
+                      <div className="space-y-2">
+                        {topHolders.map((h, i) => (
+                          <div key={h.address} className="flex items-center justify-between text-xs font-body">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-muted-foreground w-4 text-right shrink-0">{i + 1}.</span>
+                              <a
+                                href={addressLink(h.address)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-foreground hover:text-primary transition-colors truncate"
+                              >
+                                {shortAddress(h.address)}
+                              </a>
+                              {h.label && (
+                                <span className={`text-[9px] font-body px-1 py-0.5 rounded shrink-0 ${
+                                  h.label === "DEV" ? "text-accent bg-accent/10"
+                                    : h.label === "POOL" ? "text-primary bg-primary/10"
+                                    : h.label === "CURVE" ? "text-secondary bg-secondary/10"
+                                    : "text-muted-foreground bg-muted/30"
+                                }`}>
+                                  {h.label}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <span className="text-foreground">{h.balance}</span>
+                              <span className="text-muted-foreground ml-1">
+                                ({h.percentage < 0.01 ? "<0.01" : h.percentage.toFixed(2)}%)
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <a
+                        href={tokenLink(address || "")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 block text-center text-[10px] font-body text-primary hover:underline flex items-center justify-center gap-1"
+                      >
+                        View all on Explorer <ExternalLink size={9} />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Contract Addresses */}
+                  <div className="card-cartoon">
+                    <h3 className="font-display text-xs text-muted-foreground mb-3">
+                      CONTRACTS
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Token</span>
+                        <a
+                          href={addressLink(record.token)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center gap-1"
+                        >
+                          {shortAddress(record.token)}{" "}
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      <div className="flex items-center justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Curve</span>
+                        <a
+                          href={addressLink(record.curve)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center gap-1"
+                        >
+                          {shortAddress(record.curve)}{" "}
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      {graduated && record.migrationPool !== ethers.ZeroAddress && (
+                        <div className="flex items-center justify-between text-xs font-body">
+                          <span className="text-muted-foreground">DEX Pool</span>
+                          <a
+                            href={addressLink(record.migrationPool)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-1"
+                          >
+                            {shortAddress(record.migrationPool)}{" "}
+                            <ExternalLink size={10} />
+                          </a>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Creator</span>
+                        <Link
+                          to={(() => {
+                            const profile = getProfile(record.creator);
+                            return profile?.username ? `/u/${profile.username}` : `/creator/${record.creator}`;
+                          })()}
+                          className="text-primary hover:underline"
+                        >
+                          {getDisplayName(record.creator)}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Social Links */}
+                  {socialLinks.length > 0 && (
+                    <div className="card-cartoon">
+                      <h3 className="font-display text-xs text-muted-foreground mb-3">
+                        LINKS
+                      </h3>
+                      <div className="space-y-2">
+                        {socialLinks.map((l) => (
+                          <a
+                            key={l.label}
+                            href={
+                              l.url.startsWith("http")
+                                ? l.url
+                                : `https://${l.url}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between text-xs font-body hover:bg-muted/50 rounded-lg p-1.5 transition-colors"
+                          >
+                            <span className="text-foreground">{l.label}</span>
+                            <ExternalLink
+                              size={12}
+                              className="text-muted-foreground"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Token Info */}
+                  <div className="card-cartoon">
+                    <h3 className="font-display text-xs text-muted-foreground mb-3">
+                      TOKEN INFO
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Supply</span>
+                        <span className="text-foreground">100B</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Grad. Target</span>
+                        <span className="text-foreground">2,500 USDC</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Fee</span>
+                        <span className="text-foreground">
+                          {graduated ? "0.5% (DEX)" : "0.3% (Protocol)"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs font-body">
+                        <span className="text-muted-foreground">Status</span>
+                        <StatusBadge status={status} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── MOBILE sidebar content (not sticky, after chat) ── */}
+              <div className="lg:hidden space-y-6">
+
+                {/* Bonding curve progress */}
+                <motion.div
+                  className="card-cartoon"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <div className="flex justify-between mb-2">
+                    <span className="text-xs font-body text-muted-foreground">
+                      {graduated ? "Graduated to DEX" : "Bonding Curve Progress"}
+                    </span>
+                    <span className="text-xs font-display text-primary">
+                      {graduated
+                        ? "100%"
+                        : `${bondingPct.toFixed(1)}%`}
+                    </span>
+                  </div>
+                  <div className="progress-arcade h-5">
+                    <motion.div
+                      className="progress-arcade-fill"
+                      initial={{ width: 0 }}
+                      animate={{
+                        width: `${graduated ? 100 : bondingPct}%`,
+                      }}
+                      transition={{ duration: 1.5 }}
+                    />
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <p className="text-xs text-muted-foreground font-body">
+                      {graduated
+                        ? "Graduated to the DEX pool."
+                        : bondingPct >= 80
+                          ? "Almost graduated!"
+                          : `${raised.toFixed(2)} / 2,500 USDC`}
+                    </p>
+                    <a
+                      href={tokenLink(address || "")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary font-body hover:underline flex items-center gap-1"
+                    >
+                      Explorer <ExternalLink size={10} />
+                    </a>
+                  </div>
+                </motion.div>
+
+                {/* DEX Liquidity Info */}
+                {graduated && poolStats && (
+                  <div className="card-cartoon">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Droplets size={14} className="text-primary" />
+                      <h3 className="font-display text-sm text-foreground">
+                        DEX LIQUIDITY
+                      </h3>
+                      <Link
+                        to="/liquidity"
+                        className="ml-auto text-[10px] font-body text-primary hover:underline flex items-center gap-1"
+                      >
+                        Manage <ExternalLink size={9} />
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-muted/30 rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground font-body">Token Reserve</p>
+                        <p className="font-display text-sm text-foreground">
+                          {formatTokenAmount(poolStats.tokenReserve)}
+                        </p>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground font-body">USDC Reserve</p>
+                        <p className="font-display text-sm text-foreground">
+                          {formatUSDC(poolStats.usdcReserve, 2)}
+                        </p>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground font-body">LP Supply</p>
+                        <p className="font-display text-sm text-foreground">
+                          {parseFloat(ethers.formatEther(poolStats.totalLPSupply)) < 0.01
+                            ? parseFloat(ethers.formatEther(poolStats.totalLPSupply)).toExponential(2)
+                            : formatNumber(parseFloat(ethers.formatEther(poolStats.totalLPSupply)))}
+                        </p>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-2 text-center">
+                        <p className="text-[10px] text-muted-foreground font-body">Spot Price</p>
+                        <p className="font-display text-sm text-foreground">
+                          {formatPrice(poolStats.spotPrice)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-xs font-body">
+                      <span className="text-muted-foreground">
+                        Fee: {poolStats.activeLPSupply > 0n ? "0.5%" : "0.3%"}
+                        {poolStats.activeLPSupply > 0n ? " (LP active)" : " (no LP)"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        DEX Vol: ${formatNumber(postMigrationVolume)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Holders */}
+                {topHolders.length > 0 && (
+                  <div className="card-cartoon">
+                    <h3 className="font-display text-xs text-muted-foreground mb-3">
+                      <Users size={12} className="inline mr-1" />
+                      TOP HOLDERS
+                    </h3>
+                    <div className="space-y-2">
+                      {topHolders.map((h, i) => (
+                        <div key={h.address} className="flex items-center justify-between text-xs font-body">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-muted-foreground w-4 text-right shrink-0">{i + 1}.</span>
+                            <a
+                              href={addressLink(h.address)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-foreground hover:text-primary transition-colors truncate"
+                            >
+                              {shortAddress(h.address)}
+                            </a>
+                            {h.label && (
+                              <span className={`text-[9px] font-body px-1 py-0.5 rounded shrink-0 ${
+                                h.label === "DEV" ? "text-accent bg-accent/10"
+                                  : h.label === "POOL" ? "text-primary bg-primary/10"
+                                  : h.label === "CURVE" ? "text-secondary bg-secondary/10"
+                                  : "text-muted-foreground bg-muted/30"
+                              }`}>
+                                {h.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <span className="text-foreground">{h.balance}</span>
+                            <span className="text-muted-foreground ml-1">
+                              ({h.percentage < 0.01 ? "<0.01" : h.percentage.toFixed(2)}%)
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <a
+                      href={tokenLink(address || "")}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 block text-center text-[10px] font-body text-primary hover:underline flex items-center justify-center gap-1"
+                    >
+                      View all on Explorer <ExternalLink size={9} />
+                    </a>
+                  </div>
+                )}
+
+                {/* Contract Addresses */}
+                <div className="card-cartoon">
+                  <h3 className="font-display text-xs text-muted-foreground mb-3">
+                    CONTRACTS
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Token</span>
+                      <a
+                        href={addressLink(record.token)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-1"
                       >
-                        {shortAddress(record.migrationPool)}{" "}
+                        {shortAddress(record.token)}{" "}
                         <ExternalLink size={10} />
                       </a>
                     </div>
-                  )}
-                  <div className="flex items-center justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Creator</span>
-                    <Link
-                      to={(() => {
-                        const profile = getProfile(record.creator);
-                        return profile?.username ? `/u/${profile.username}` : `/creator/${record.creator}`;
-                      })()}
-                      className="text-primary hover:underline"
-                    >
-                      {getDisplayName(record.creator)}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-
-              {/* Social Links */}
-              {socialLinks.length > 0 && (
-                <div className="card-cartoon">
-                  <h3 className="font-display text-xs text-muted-foreground mb-3">
-                    LINKS
-                  </h3>
-                  <div className="space-y-2">
-                    {socialLinks.map((l) => (
+                    <div className="flex items-center justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Curve</span>
                       <a
-                        key={l.label}
-                        href={
-                          l.url.startsWith("http")
-                            ? l.url
-                            : `https://${l.url}`
-                        }
+                        href={addressLink(record.curve)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between text-xs font-body hover:bg-muted/50 rounded-lg p-1.5 transition-colors"
+                        className="text-primary hover:underline flex items-center gap-1"
                       >
-                        <span className="text-foreground">{l.label}</span>
-                        <ExternalLink
-                          size={12}
-                          className="text-muted-foreground"
-                        />
+                        {shortAddress(record.curve)}{" "}
+                        <ExternalLink size={10} />
                       </a>
-                    ))}
+                    </div>
+                    {graduated && record.migrationPool !== ethers.ZeroAddress && (
+                      <div className="flex items-center justify-between text-xs font-body">
+                        <span className="text-muted-foreground">DEX Pool</span>
+                        <a
+                          href={addressLink(record.migrationPool)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline flex items-center gap-1"
+                        >
+                          {shortAddress(record.migrationPool)}{" "}
+                          <ExternalLink size={10} />
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Creator</span>
+                      <Link
+                        to={(() => {
+                          const profile = getProfile(record.creator);
+                          return profile?.username ? `/u/${profile.username}` : `/creator/${record.creator}`;
+                        })()}
+                        className="text-primary hover:underline"
+                      >
+                        {getDisplayName(record.creator)}
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              {/* Token Info */}
-              <div className="card-cartoon">
-                <h3 className="font-display text-xs text-muted-foreground mb-3">
-                  TOKEN INFO
-                </h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Supply</span>
-                    <span className="text-foreground">100B</span>
+                {/* Social Links */}
+                {socialLinks.length > 0 && (
+                  <div className="card-cartoon">
+                    <h3 className="font-display text-xs text-muted-foreground mb-3">
+                      LINKS
+                    </h3>
+                    <div className="space-y-2">
+                      {socialLinks.map((l) => (
+                        <a
+                          key={l.label}
+                          href={
+                            l.url.startsWith("http")
+                              ? l.url
+                              : `https://${l.url}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between text-xs font-body hover:bg-muted/50 rounded-lg p-1.5 transition-colors"
+                        >
+                          <span className="text-foreground">{l.label}</span>
+                          <ExternalLink
+                            size={12}
+                            className="text-muted-foreground"
+                          />
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Grad. Target</span>
-                    <span className="text-foreground">2,500 USDC</span>
-                  </div>
-                  <div className="flex justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Fee</span>
-                    <span className="text-foreground">
-                      {graduated ? "0.5% (DEX)" : "0.3% (Protocol)"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs font-body">
-                    <span className="text-muted-foreground">Status</span>
-                    <StatusBadge status={status} />
+                )}
+
+                {/* Token Info */}
+                <div className="card-cartoon">
+                  <h3 className="font-display text-xs text-muted-foreground mb-3">
+                    TOKEN INFO
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Supply</span>
+                      <span className="text-foreground">100B</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Grad. Target</span>
+                      <span className="text-foreground">2,500 USDC</span>
+                    </div>
+                    <div className="flex justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Fee</span>
+                      <span className="text-foreground">
+                        {graduated ? "0.5% (DEX)" : "0.3% (Protocol)"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs font-body">
+                      <span className="text-muted-foreground">Status</span>
+                      <StatusBadge status={status} />
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Top Holders */}
-              {topHolders.length > 0 && (
-                <div className="card-cartoon">
-                  <h3 className="font-display text-xs text-muted-foreground mb-3">
-                    <Users size={12} className="inline mr-1" />
-                    TOP HOLDERS
-                  </h3>
-                  <div className="space-y-2">
-                    {topHolders.map((h, i) => (
-                      <div key={h.address} className="flex items-center justify-between text-xs font-body">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-muted-foreground w-4 text-right shrink-0">{i + 1}.</span>
-                          <a
-                            href={addressLink(h.address)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-foreground hover:text-primary transition-colors truncate"
-                          >
-                            {shortAddress(h.address)}
-                          </a>
-                          {h.label && (
-                            <span className={`text-[9px] font-body px-1 py-0.5 rounded shrink-0 ${
-                              h.label === "DEV" ? "text-accent bg-accent/10"
-                                : h.label === "POOL" ? "text-primary bg-primary/10"
-                                : h.label === "CURVE" ? "text-secondary bg-secondary/10"
-                                : "text-muted-foreground bg-muted/30"
-                            }`}>
-                              {h.label}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0 ml-2">
-                          <span className="text-foreground">{h.balance}</span>
-                          <span className="text-muted-foreground ml-1">
-                            ({h.percentage < 0.01 ? "<0.01" : h.percentage.toFixed(2)}%)
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <a
-                    href={tokenLink(address || "")}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 block text-center text-[10px] font-body text-primary hover:underline flex items-center justify-center gap-1"
-                  >
-                    View all on Explorer <ExternalLink size={9} />
-                  </a>
-                </div>
-              )}
             </div>
           </div>
         </div>
