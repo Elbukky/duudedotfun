@@ -4,6 +4,7 @@ import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight, Loader2 } from "luc
 import { useEffect } from "react";
 import mascot from "@/assets/mascot.png";
 import pepeAstronaut from "@/assets/pepe-astronaut.png";
+import logo from "@/assets/logo.jpg";
 import TokenCard from "@/components/TokenCard";
 import ArenaLeaderboardRow from "@/components/ArenaLeaderboardRow";
 import { enrichedToToken } from "@/lib/mockData";

@@ -4,6 +4,7 @@ import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Drople
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { shortAddress } from "@/lib/arcscan";
+import logo from "@/assets/logo.jpg";
 
 const Navbar = () => {
   const location = useLocation();
@@ -31,20 +32,12 @@ const Navbar = () => {
           <nav className="fixed top-0 left-0 right-0 z-50 border-b-2 border-primary/20 bg-background/90 backdrop-blur-md">
             <div className="container flex items-center justify-between h-16">
               <Link to="/" className="flex items-center gap-2">
-                <motion.span
-                  className="text-2xl font-display tracking-wider"
+                <motion.img
+                  src={logo}
+                  alt="duude.fun"
+                  className="h-10 w-auto"
                   whileHover={{ scale: 1.05 }}
-                  style={{
-                    background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)))',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    WebkitTextStroke: '1.5px transparent',
-                    backgroundClip: 'text',
-                    filter: 'drop-shadow(0 0 8px hsl(var(--neon-purple) / 0.3))',
-                  }}
-                >
-                  duude.fun
-                </motion.span>
+                />
               </Link>
 
               {/* Desktop */}
