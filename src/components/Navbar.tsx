@@ -35,7 +35,9 @@ const Navbar = () => {
                 <motion.img
                   src={logo}
                   alt="duude.fun"
-                  className="h-10 w-auto"
+                  className="h-8 w-auto"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
                   whileHover={{ scale: 1.05 }}
                 />
                 <motion.span
