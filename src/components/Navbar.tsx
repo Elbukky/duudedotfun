@@ -4,7 +4,7 @@ import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Drople
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { shortAddress } from "@/lib/arcscan";
-import logo from "@/assets/logo.jpg";
+import logo from "@/assets/logo.png";
 
 const Navbar = () => {
   const location = useLocation();
