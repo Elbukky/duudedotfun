@@ -38,6 +38,20 @@ const Navbar = () => {
                   className="h-10 w-auto"
                   whileHover={{ scale: 1.05 }}
                 />
+                <motion.span
+                  className="text-2xl font-display tracking-wider"
+                  whileHover={{ scale: 1.05 }}
+                  style={{
+                    background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)))',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    WebkitTextStroke: '1.5px transparent',
+                    backgroundClip: 'text',
+                    filter: 'drop-shadow(0 0 8px hsl(var(--neon-purple) / 0.3))',
+                  }}
+                >
+                  duude.fun
+                </motion.span>
               </Link>
 
               {/* Desktop */}
