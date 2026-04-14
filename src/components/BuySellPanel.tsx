@@ -6,6 +6,7 @@ import { useBondingCurve, type QuoteResult } from "@/hooks/useBondingCurve";
 import { usePostMigrationPool } from "@/hooks/usePostMigrationPool";
 import { getLaunchToken, getLaunchTokenWrite, formatUSDC, formatTokenAmount } from "@/lib/contracts";
 import { toast } from "sonner";
+import { parseTransactionError } from "@/lib/errors";
 
 interface BuySellPanelProps {
   curveAddress: string | null;
@@ -29,6 +30,7 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
   const [approving, setApproving] = useState(false);
   const [userBalance, setUserBalance] = useState<bigint>(0n);
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   // Fetch user balances
   useEffect(() => {
@@ -49,7 +51,7 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
     fetchBalances();
     const interval = setInterval(fetchBalances, 10000);
     return () => clearInterval(interval);
-  }, [userAddress, tokenAddress, readProvider]);
+  }, [userAddress, tokenAddress, readProvider, balanceRefreshKey]);
 
   // Debounced quote fetching
   useEffect(() => {
@@ -125,15 +127,17 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
     const spender = graduated && poolAddress ? poolAddress : curveAddress;
     if (!spender) return;
     setApproving(true);
+    const toastId = toast.loading("Approve token spending in wallet...");
     try {
       const token = getLaunchTokenWrite(tokenAddress, signer);
       const tx = await token.approve(spender, ethers.MaxUint256);
-      toast.info("Approving tokens...");
+      toast.loading("Waiting for approval confirmation...", { id: toastId });
       await tx.wait();
       setNeedsApproval(false);
-      toast.success("Approved!");
+      toast.success("Approved!", { id: toastId });
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Approval failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setApproving(false);
     }
@@ -141,14 +145,19 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
 
   const handleTrade = async () => {
     if (!isConnected || !amount || parseFloat(amount) <= 0) return;
+
+    const toastId = toast.loading(
+      mode === "buy" ? "Preparing buy..." : "Preparing sell..."
+    );
+
     try {
       if (graduated) {
         if (mode === "buy") {
           const usdcIn = ethers.parseEther(amount);
           const minTokensOut = poolQuote ? (poolQuote.amountOut * 97n) / 100n : 0n;
-          toast.info("Confirming buy...");
-          await pool.swap(minTokensOut, 0n, usdcIn);
-          toast.success(`Bought ${tokenSymbol}!`);
+          toast.loading("Confirm in wallet...", { id: toastId });
+          const receipt = await pool.swap(minTokensOut, 0n, usdcIn);
+          toast.success(`Bought ${tokenSymbol}!`, { id: toastId });
         } else {
           const tokensIn = ethers.parseEther(amount);
           // Apply 3% slippage tolerance to usdcOut. The pool swap is
@@ -156,28 +165,30 @@ const BuySellPanel = ({ curveAddress, tokenAddress, tokenSymbol, graduated, pool
           // how many tokens to take. If reserves shifted since the quote,
           // the actual output may differ — 3% buffer prevents reverts.
           const usdcOut = poolQuote ? (poolQuote.amountOut * 97n) / 100n : 0n;
-          toast.info("Confirming sell...");
-          await pool.swap(0n, usdcOut, tokensIn);
-          toast.success(`Sold ${tokenSymbol}!`);
+          toast.loading("Confirm in wallet...", { id: toastId });
+          const receipt = await pool.swap(0n, usdcOut, tokensIn);
+          toast.success(`Sold ${tokenSymbol}!`, { id: toastId });
         }
       } else {
         if (mode === "buy") {
           const minOut = quote ? (quote.amountOut * 98n) / 100n : 0n;
-          toast.info("Confirming buy...");
-          await curve.buy(amount, minOut);
-          toast.success(`Bought ${tokenSymbol}!`);
+          toast.loading("Confirm in wallet...", { id: toastId });
+          const receipt = await curve.buy(amount, minOut);
+          toast.success(`Bought ${tokenSymbol}!`, { id: toastId });
         } else {
           const minOut = quote ? (quote.amountOut * 98n) / 100n : 0n;
-          toast.info("Confirming sell...");
-          await curve.sell(amount, minOut);
-          toast.success(`Sold ${tokenSymbol}!`);
+          toast.loading("Confirm in wallet...", { id: toastId });
+          const receipt = await curve.sell(amount, minOut);
+          toast.success(`Sold ${tokenSymbol}!`, { id: toastId });
         }
       }
       setAmount("");
       setQuote(null);
       setPoolQuote(null);
+      setBalanceRefreshKey((k) => k + 1);
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Transaction failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     }
   };
 

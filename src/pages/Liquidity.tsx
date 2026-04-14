@@ -10,6 +10,7 @@ import { useWeb3 } from "@/lib/web3Provider";
 import { formatUSDC, formatTokenAmount, getPostMigrationPool, getLaunchToken, formatPriceNum, type TokenRecord } from "@/lib/contracts";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { toast } from "sonner";
+import { parseTransactionError } from "@/lib/errors";
 
 // Per-pool state managed within the page
 interface PoolDisplayData {
@@ -119,15 +120,16 @@ function PoolCard({
   const handleAddLiquidity = async () => {
     if (!isConnected || !tokenAmount || !usdcAmount) return;
     setBusy(true);
+    const toastId = toast.loading(`Adding liquidity to ${record.symbol} pool...`);
     try {
-      toast.info(`Adding liquidity to ${record.symbol} pool...`);
       await pool.addLiquidity(tokenAmount, usdcAmount);
-      toast.success("Liquidity added successfully!");
+      toast.success("Liquidity added successfully!", { id: toastId });
       setTokenAmount("");
       setUsdcAmount("");
       onRefresh();
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Add liquidity failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setBusy(false);
     }
@@ -136,14 +138,15 @@ function PoolCard({
   const handleRemoveLiquidity = async () => {
     if (!isConnected || !lpRemoveAmount) return;
     setBusy(true);
+    const toastId = toast.loading(`Removing liquidity from ${record.symbol} pool...`);
     try {
-      toast.info(`Removing liquidity from ${record.symbol} pool...`);
       await pool.removeLiquidity(lpRemoveAmount);
-      toast.success("Liquidity removed successfully!");
+      toast.success("Liquidity removed successfully!", { id: toastId });
       setLpRemoveAmount("");
       onRefresh();
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Remove liquidity failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setBusy(false);
     }
@@ -152,13 +155,14 @@ function PoolCard({
   const handleClaimFees = async () => {
     if (!isConnected) return;
     setBusy(true);
+    const toastId = toast.loading(`Claiming LP fees from ${record.symbol} pool...`);
     try {
-      toast.info(`Claiming LP fees from ${record.symbol} pool...`);
       await pool.claimLPFees();
-      toast.success("LP fees claimed!");
+      toast.success("LP fees claimed!", { id: toastId });
       onRefresh();
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Claim failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setBusy(false);
     }

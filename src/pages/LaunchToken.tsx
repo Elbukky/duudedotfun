@@ -7,6 +7,7 @@ import { useWeb3 } from "@/lib/web3Provider";
 import { useTokenFactory } from "@/hooks/useTokenFactory";
 import { ethers } from "ethers";
 import { toast } from "sonner";
+import { parseTransactionError } from "@/lib/errors";
 import { categories } from "@/lib/mockData";
 import { compressImage, uploadImageToR2 } from "@/lib/imageUtils";
 
@@ -161,8 +162,8 @@ const LaunchToken = () => {
       }
     } catch (err: any) {
       console.error("Launch failed:", err);
-      const msg = err?.reason || err?.message || "Transaction failed";
-      toast.error(msg.length > 100 ? msg.slice(0, 100) + "..." : msg);
+      const msg = parseTransactionError(err);
+      toast.error(msg, { duration: 5000 });
     }
   };
 

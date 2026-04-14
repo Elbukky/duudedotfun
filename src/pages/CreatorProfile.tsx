@@ -15,6 +15,7 @@ import { enrichedToToken } from "@/lib/mockData";
 import { shortAddress, addressLink } from "@/lib/arcscan";
 import { compressImage, uploadImageToR2 } from "@/lib/imageUtils";
 import { toast } from "sonner";
+import { parseTransactionError } from "@/lib/errors";
 
 const CreatorProfile = () => {
   const { address } = useParams<{ address: string }>();
@@ -348,7 +349,7 @@ const CreatorProfile = () => {
         toast.error("Upload failed — check R2 config");
       }
     } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+      toast.error(parseTransactionError(err), { duration: 5000 });
     } finally {
       setUploadingAvatar(false);
     }
@@ -372,17 +373,17 @@ const CreatorProfile = () => {
       setEditingProfile(false);
       toast.success("Profile saved!");
     } catch (err: any) {
-      toast.error(err.message || "Save failed");
+      toast.error(parseTransactionError(err), { duration: 5000 });
     } finally {
       setSavingProfile(false);
     }
   };
 
   const handleClaim = async (vaultAddress: string, tokenSymbol: string) => {
+    const toastId = toast.loading(`Claiming vested ${tokenSymbol}...`);
     try {
-      toast.info(`Claiming vested ${tokenSymbol}...`);
       await claim(vaultAddress);
-      toast.success(`Claimed ${tokenSymbol} tokens!`);
+      toast.success(`Claimed ${tokenSymbol} tokens!`, { id: toastId });
       // Refresh vesting data
       if (connectedAddress) {
         const info = await getVestingInfo(vaultAddress, connectedAddress);
@@ -395,7 +396,8 @@ const CreatorProfile = () => {
         }
       }
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Claim failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     }
   };
 
@@ -404,16 +406,18 @@ const CreatorProfile = () => {
       toast.error("Connect wallet first");
       return;
     }
+    const toastId = toast.loading("Claiming creator fees...");
     try {
       setClaimingFee(true);
       const vault = getFeeVaultWrite(web3Signer);
-      toast.info("Claiming creator fees...");
       const tx = await vault.claimCreatorFees();
+      toast.loading("Waiting for confirmation...", { id: toastId });
       await tx.wait();
-      toast.success("Creator fees claimed!");
+      toast.success("Creator fees claimed!", { id: toastId });
       setCreatorFeeClaimable(0n);
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Claim failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setClaimingFee(false);
     }
@@ -424,16 +428,18 @@ const CreatorProfile = () => {
       toast.error("Connect wallet first");
       return;
     }
+    const toastId = toast.loading("Claiming protocol fees...");
     try {
       setClaimingProtocolFee(true);
       const vault = getFeeVaultWrite(web3Signer);
-      toast.info("Claiming protocol fees (split between owners)...");
       const tx = await vault.claimProtocolFees();
+      toast.loading("Waiting for confirmation...", { id: toastId });
       await tx.wait();
-      toast.success("Protocol fees claimed!");
+      toast.success("Protocol fees claimed!", { id: toastId });
       setProtocolFeeClaimable(0n);
     } catch (err: any) {
-      toast.error(err.reason || err.message || "Claim failed");
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setClaimingProtocolFee(false);
     }

@@ -20,6 +20,7 @@ import {
 } from "@/lib/contracts";
 import { shortAddress } from "@/lib/arcscan";
 import { toast } from "sonner";
+import { parseTransactionError } from "@/lib/errors";
 
 // ── Constants ──────────────────────────────────────────────
 const PAGE_SIZE = 25;
@@ -236,6 +237,7 @@ const Explore = () => {
   const [tokenBalance, setTokenBalance] = useState<bigint>(0n);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const quoteTimer = useRef<ReturnType<typeof setTimeout>>();
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   // ── Process tokens ──
   const processed = useMemo<ProcessedToken[]>(() => {
@@ -292,7 +294,7 @@ const Explore = () => {
     const arr = [...filtered];
     switch (sortBy) {
       case "recent":
-        arr.sort((a, b) => b.et.record.createdAt - a.et.record.createdAt);
+        arr.sort((a, b) => Number(b.et.record.createdAt - a.et.record.createdAt));
         break;
       case "mcap":
         arr.sort((a, b) => b.mcap - a.mcap);
@@ -402,7 +404,7 @@ const Explore = () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [expandedToken, userAddress, readProvider]);
+  }, [expandedToken, userAddress, readProvider, balanceRefreshKey]);
 
   // ── Debounced quote ──
   useEffect(() => {
@@ -522,6 +524,10 @@ const Explore = () => {
     if (!et) return;
 
     setExecuting(true);
+    const toastId = toast.loading(
+      tradeMode === "buy" ? "Preparing buy..." : "Preparing sell..."
+    );
+
     try {
       const amountWei = ethers.parseEther(tradeAmount);
       if (amountWei === 0n) throw new Error("Amount is zero");
@@ -543,9 +549,11 @@ const Explore = () => {
           const tokensOut = (net * tokenReserve) / (usdcReserve + net);
           const minOut = (tokensOut * 97n) / 100n; // 3% slippage
           const pool = getPostMigrationPoolWrite(poolAddr, signer);
+          toast.loading("Confirm in wallet...", { id: toastId });
           const tx = await pool.swap(minOut, 0n, userAddress, amountWei, {
             value: amountWei,
           });
+          toast.loading("Transaction submitted — confirming...", { id: toastId });
           await tx.wait();
         } else {
           // Curve buy
@@ -555,12 +563,14 @@ const Explore = () => {
           ).quoteBuy(amountWei);
           const minOut = (tokensOut * 98n) / 100n; // 2% slippage
           const curveW = getBondingCurveWrite(curveAddr, signer);
+          toast.loading("Confirm in wallet...", { id: toastId });
           const tx = await curveW.buy(minOut, userAddress, {
             value: amountWei,
           });
+          toast.loading("Transaction submitted — confirming...", { id: toastId });
           await tx.wait();
         }
-        toast.success("Buy successful!");
+        toast.success("Buy successful!", { id: toastId });
       } else {
         // Sell — approval first
         const spender =
@@ -568,9 +578,10 @@ const Explore = () => {
         const tokenRead = getLaunchToken(expandedToken, readProvider);
         const allowance = await tokenRead.allowance(userAddress, spender);
         if (allowance < amountWei) {
-          toast.info("Approving token...");
+          toast.loading("Approve token spending in wallet...", { id: toastId });
           const tokenW = getLaunchTokenWrite(expandedToken, signer);
           const aTx = await tokenW.approve(spender, ethers.MaxUint256);
+          toast.loading("Waiting for approval...", { id: toastId });
           await aTx.wait();
         }
 
@@ -587,7 +598,9 @@ const Explore = () => {
           const usdcOut = gross - (gross * feeBps) / 10000n;
           const minOut = (usdcOut * 97n) / 100n; // 3% slippage
           const pool = getPostMigrationPoolWrite(poolAddr, signer);
+          toast.loading("Confirm sell in wallet...", { id: toastId });
           const tx = await pool.swap(0n, minOut, userAddress, amountWei);
+          toast.loading("Transaction submitted — confirming...", { id: toastId });
           await tx.wait();
         } else {
           // Curve sell
@@ -597,19 +610,22 @@ const Explore = () => {
           ).quoteSell(amountWei);
           const minOut = (usdcOut * 98n) / 100n; // 2% slippage
           const curveW = getBondingCurveWrite(curveAddr, signer);
+          toast.loading("Confirm sell in wallet...", { id: toastId });
           const tx = await curveW.sell(amountWei, minOut);
+          toast.loading("Transaction submitted — confirming...", { id: toastId });
           await tx.wait();
         }
-        toast.success("Sell successful!");
+        toast.success("Sell successful!", { id: toastId });
       }
 
       setTradeAmount("");
       setQuoteResult("");
+      setBalanceRefreshKey((k) => k + 1);
       refresh();
     } catch (err: any) {
       console.error("Trade failed:", err);
-      const msg = err?.reason || err?.message || "Transaction failed";
-      toast.error(msg.length > 120 ? msg.slice(0, 120) + "..." : msg);
+      const msg = parseTransactionError(err);
+      toast.error(msg, { id: toastId, duration: 5000 });
     } finally {
       setExecuting(false);
     }
