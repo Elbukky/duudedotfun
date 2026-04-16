@@ -483,9 +483,8 @@ const Index = () => {
           <span className="font-display text-sm tracking-wider" style={{ background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', filter: 'drop-shadow(0 0 6px hsl(var(--neon-purple) / 0.3))' }}>duude.fun</span>
           <p className="text-xs text-muted-foreground font-body">© 2026 duude.fun. Built for degens, by degens.</p>
           <div className="flex gap-4">
-            {['Twitter', 'Discord', 'Docs'].map((l) => (
-              <span key={l} className="text-xs text-muted-foreground font-body hover:text-primary cursor-pointer transition-colors">{l}</span>
-            ))}
+            <a href="https://x.com/Duudedotfun" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground font-body hover:text-primary cursor-pointer transition-colors">Twitter</a>
+            <Link to="/docs" className="text-xs text-muted-foreground font-body hover:text-primary cursor-pointer transition-colors">Docs</Link>
           </div>
         </div>
       </footer>
