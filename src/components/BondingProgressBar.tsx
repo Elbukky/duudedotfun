@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import mascot from "@/assets/mascot.png";
+import pepeAstronaut from "@/assets/pepe-astronaut.png";
 
 interface BondingProgressBarProps {
   progress: number;
@@ -14,9 +15,8 @@ interface BondingProgressBarProps {
 /**
  * Animated bonding curve progress bar.
  *
- * The mascot rides the leading edge of the fill with a lively multi-frequency
- * flying animation (bobbing, banking, breathing, speed-trail particles, and a
- * pulsing energy glow).
+ * The mascot rides the leading edge of the fill with a gentle bobbing animation.
+ * Small floating astronauts drift inside the filled portion.
  *
  * On graduation the mascot launches upward in a curve with burst sparkles.
  */
@@ -65,6 +65,14 @@ export default function BondingProgressBar({
     { angle: -165, dist: 55 },
   ];
 
+  // Floating astronaut positions inside the fill
+  const astronauts = [
+    { left: "12%", delay: 0 },
+    { left: "38%", delay: 0.5 },
+    { left: "62%", delay: 1.0 },
+    { left: "85%", delay: 1.5 },
+  ];
+
   return (
     <div className="relative" style={{ overflow: "visible" }}>
       {/* ── track + fill ── */}
@@ -74,7 +82,44 @@ export default function BondingProgressBar({
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 1.5, delay: animDelay }}
-        />
+        >
+          {/* Small floating astronauts inside the fill */}
+          {astronauts.map((astro, i) => (
+            <motion.img
+              key={`astro-${i}`}
+              src={pepeAstronaut}
+              alt=""
+              draggable={false}
+              className="absolute pointer-events-none"
+              style={{
+                width: 10,
+                height: 10,
+                left: astro.left,
+                top: "50%",
+                marginTop: -5,
+                opacity: 0.4,
+              }}
+              animate={{
+                y: [-2, 2, -2],
+                rotate: [-8, 8, -8],
+              }}
+              transition={{
+                y: {
+                  repeat: Infinity,
+                  duration: 2.5 + i * 0.3,
+                  delay: astro.delay,
+                  ease: "easeInOut",
+                },
+                rotate: {
+                  repeat: Infinity,
+                  duration: 3 + i * 0.4,
+                  delay: astro.delay,
+                  ease: "easeInOut",
+                },
+              }}
+            />
+          ))}
+        </motion.div>
       </div>
 
       {/* ── flying mascot ── */}
@@ -89,69 +134,40 @@ export default function BondingProgressBar({
             opacity: { duration: 0.4, delay: animDelay },
           }}
         >
-          {/* Pulsing energy glow behind mascot */}
+          {/* Subtle glow behind mascot */}
           <motion.div
             className="absolute rounded-full blur-md -z-10"
             style={{
               background:
-                "radial-gradient(circle, hsl(var(--neon-purple) / 0.5), hsl(var(--slime-green) / 0.15), transparent 70%)",
-              width: mascotSize * 1.6,
-              height: mascotSize * 1.6,
-              left: -(mascotSize * 0.3),
-              top: -(mascotSize * 0.3),
+                "radial-gradient(circle, hsl(var(--neon-purple) / 0.3), transparent 70%)",
+              width: mascotSize * 1.4,
+              height: mascotSize * 1.4,
+              left: -(mascotSize * 0.2),
+              top: -(mascotSize * 0.2),
             }}
             animate={{
-              opacity: [0.35, 0.8, 0.35],
-              scale: [0.85, 1.25, 0.85],
+              opacity: [0.3, 0.55, 0.3],
+              scale: [0.95, 1.08, 0.95],
             }}
-            transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           />
 
-          {/* Speed-trail particles shooting backward */}
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="absolute rounded-full"
-              style={{
-                width: 3 - i * 0.5,
-                height: 3 - i * 0.5,
-                top: half - 1.5,
-                left: half,
-                background: `hsl(var(--neon-purple) / ${0.7 - i * 0.15})`,
-              }}
-              animate={{
-                x: [0, -(mascotSize * 0.6 + i * 10)],
-                opacity: [0.7, 0],
-                scale: [1, 0.2],
-              }}
-              transition={{
-                repeat: Infinity,
-                duration: 0.7 + i * 0.15,
-                delay: i * 0.2,
-                ease: "easeOut",
-              }}
-            />
-          ))}
-
-          {/* Mascot image — multi-frequency animation keeps it lively */}
+          {/* Mascot image — gentle smooth bobbing */}
           <motion.img
             src={mascot}
             alt=""
             draggable={false}
             style={{ width: mascotSize, height: mascotSize }}
-            className="relative z-10 drop-shadow-[0_0_8px_hsl(var(--neon-purple)/0.5)]"
+            className="relative z-10 drop-shadow-[0_0_6px_hsl(var(--neon-purple)/0.4)]"
             animate={{
-              // 5-point keyframes + different durations = organic, never-repeating motion
-              y: [-4, 6, -2, 5, -4],
-              x: [-1, 3, 0, -2, -1],
-              rotate: [-10, 16, -5, 13, -10],
-              scale: [1, 1.09, 0.97, 1.06, 1],
+              y: [-1.5, 2, -1.5],
+              rotate: [-3, 4, -3],
+              scale: [1, 1.02, 1],
             }}
             transition={{
-              y: { repeat: Infinity, duration: 1.8, ease: "easeInOut" },
-              x: { repeat: Infinity, duration: 2.6, ease: "easeInOut" },
-              rotate: { repeat: Infinity, duration: 2.8, ease: "easeInOut" },
-              scale: { repeat: Infinity, duration: 2.2, ease: "easeInOut" },
+              y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
+              rotate: { repeat: Infinity, duration: 3.5, ease: "easeInOut" },
+              scale: { repeat: Infinity, duration: 3.2, ease: "easeInOut" },
             }}
           />
         </motion.div>
