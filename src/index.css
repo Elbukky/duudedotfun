@@ -108,8 +108,56 @@
     background: hsl(var(--muted));
   }
   .progress-arcade-fill {
-    @apply h-full rounded-full transition-all duration-700 ease-out;
+    @apply h-full rounded-full;
+    position: relative;
+    overflow: hidden;
     background: linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)));
+    transition: width 0.7s ease-out;
+    animation: bar-glow 2s ease-in-out infinite;
+  }
+
+  /* Primary lightning bolt sweep */
+  .progress-arcade-fill::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -40%;
+    width: 15%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.05) 25%,
+      rgba(255, 255, 255, 0.5) 45%,
+      rgba(255, 255, 255, 0.85) 50%,
+      rgba(255, 255, 255, 0.5) 55%,
+      rgba(255, 255, 255, 0.05) 75%,
+      transparent 100%
+    );
+    transform: skewX(-20deg);
+    animation: lightning-sweep 2.5s ease-in-out infinite;
+    filter: blur(1px);
+  }
+
+  /* Secondary faint sweep for electric depth */
+  .progress-arcade-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%;
+    width: 25%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.02) 35%,
+      rgba(255, 255, 255, 0.15) 50%,
+      rgba(255, 255, 255, 0.02) 65%,
+      transparent 100%
+    );
+    transform: skewX(-15deg);
+    animation: lightning-sweep 2.5s ease-in-out 0.9s infinite;
+    filter: blur(3px);
   }
 }
 
@@ -122,6 +170,43 @@
   }
   .animate-gradient-shift {
     animation: gradient-shift 4s ease infinite;
+  }
+}
+
+/* Lightning bolt sweep across the filled bar */
+@keyframes lightning-sweep {
+  0% {
+    left: -40%;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+  }
+  55% {
+    left: 110%;
+    opacity: 0;
+  }
+  100% {
+    left: 110%;
+    opacity: 0;
+  }
+}
+
+/* Pulsing neon glow on the progress fill */
+@keyframes bar-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 4px hsl(var(--neon-purple) / 0.4),
+      0 0 8px hsl(var(--slime-green) / 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 8px hsl(var(--neon-purple) / 0.6),
+      0 0 18px hsl(var(--slime-green) / 0.4),
+      0 0 30px hsl(var(--primary) / 0.15);
   }
 }
 
