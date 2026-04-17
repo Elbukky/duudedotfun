@@ -59,7 +59,7 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
                 </div>
                 <BondingProgressBar
                   progress={token.bondingProgress}
-                  mascotSize={30}
+                  mascotSize={44}
                   animDelay={index * 0.1}
                 />
               </div>

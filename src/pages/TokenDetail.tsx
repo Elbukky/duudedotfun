@@ -717,7 +717,7 @@ const TokenDetail = () => {
                       progress={bondingPct}
                       graduated={graduated}
                       barHeight="h-5"
-                      mascotSize={40}
+                      mascotSize={58}
                       showGraduationAnim
                     />
                     <div className="flex justify-between mt-2">
@@ -986,7 +986,7 @@ const TokenDetail = () => {
                     progress={bondingPct}
                     graduated={graduated}
                     barHeight="h-5"
-                    mascotSize={40}
+                    mascotSize={58}
                     showGraduationAnim
                   />
                   <div className="flex justify-between mt-2">
