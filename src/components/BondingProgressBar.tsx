@@ -92,12 +92,12 @@ export default function BondingProgressBar({
               draggable={false}
               className="absolute pointer-events-none"
               style={{
-                width: 10,
-                height: 10,
+                width: 11,
+                height: 11,
                 left: astro.left,
                 top: "50%",
-                marginTop: -5,
-                opacity: 0.4,
+                marginTop: -5.5,
+                opacity: 0.55,
               }}
               animate={{
                 y: [-2, 2, -2],
