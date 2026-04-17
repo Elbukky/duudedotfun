@@ -4,6 +4,7 @@ import type { Token } from "@/lib/mockData";
 import { formatPriceNum } from "@/lib/contracts";
 import StatusBadge from "./StatusBadge";
 import AuraWrapper from "./AuraWrapper";
+import BondingProgressBar from "./BondingProgressBar";
 
 function TokenLogo({ logo, name, size = "text-4xl" }: { logo: string; name: string; size?: string }) {
   if (logo.startsWith("data:") || logo.startsWith("http")) {
@@ -56,14 +57,11 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
                   <span className="text-muted-foreground">Bonding</span>
                   <span className="text-primary">{token.bondingProgress.toFixed(1)}%</span>
                 </div>
-                <div className="progress-arcade">
-                  <motion.div
-                    className="progress-arcade-fill"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(token.bondingProgress, 100)}%` }}
-                    transition={{ duration: 1, delay: index * 0.1 }}
-                  />
-                </div>
+                <BondingProgressBar
+                  progress={token.bondingProgress}
+                  mascotSize={24}
+                  animDelay={index * 0.1}
+                />
               </div>
             ) : (
               <div className="pt-1">

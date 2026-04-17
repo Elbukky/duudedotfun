@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Rocket, Swords, TrendingUp, Users, Zap, ArrowRight, Loader2 } from "lucide-react";
 import { useEffect } from "react";
-import mascot from "@/assets/mascot.png";
 import pepeAstronaut from "@/assets/pepe-astronaut.png";
 import logo from "@/assets/logo.png";
 import TokenCard from "@/components/TokenCard";
@@ -168,8 +167,8 @@ const Index = () => {
           transition={{ repeat: Infinity, duration: 4, ease: "easeInOut", delay: 0.5 }}
         />
         <div className="container">
-          <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
-            <div className="flex-1 text-center lg:text-left">
+          <div className="flex flex-col items-center">
+            <div className="text-center max-w-2xl">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -199,10 +198,10 @@ const Index = () => {
                 <p className="text-lg md:text-2xl font-display text-muted-foreground mb-4 tracking-wide">
                   LAUNCH YOUR <span className="text-primary">MEME.</span> PROVE YOUR <span className="text-accent">HYPE.</span>
                 </p>
-                <p className="text-lg text-muted-foreground font-body max-w-md mx-auto lg:mx-0 mb-8">
+                <p className="text-lg text-muted-foreground font-body max-w-md mx-auto mb-8">
                   Create meme coins, trade them instantly, and battle for glory on duude.fun — the ultimate memecoin arena.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Link to="/launch">
                     <motion.button
                       className="btn-arcade bg-primary text-primary-foreground border-primary px-8 py-4 text-sm w-full sm:w-auto flex items-center justify-center gap-2"
@@ -224,34 +223,6 @@ const Index = () => {
                 </div>
               </motion.div>
             </div>
-            <motion.div
-              className="flex-1 flex justify-center relative"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-            >
-              <motion.img
-                src={mascot}
-                alt="MemeArena Mascot"
-                className="w-64 md:w-80 lg:w-96 drop-shadow-2xl"
-                width={512}
-                height={512}
-                animate={{ y: [0, -15, 0] }}
-                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-              />
-              {/* Floating badges */}
-              {['🔥 HOT', '💎 DEGEN', '🚀 MOON'].map((label, i) => (
-                <motion.span
-                  key={label}
-                  className="badge-sticker bg-primary/20 text-primary border-primary/40 absolute text-xs"
-                  style={{ top: `${20 + i * 30}%`, right: `${5 + i * 10}%` }}
-                  animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 + i * 0.5, delay: i * 0.3 }}
-                >
-                  {label}
-                </motion.span>
-              ))}
-            </motion.div>
           </div>
         </div>
       </section>

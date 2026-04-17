@@ -8,6 +8,7 @@ import HypeScoreWidget from "@/components/HypeScoreWidget";
 import MissionCard from "@/components/MissionCard";
 import BuySellPanel from "@/components/BuySellPanel";
 import ActivityFeed from "@/components/ActivityFeed";
+import BondingProgressBar from "@/components/BondingProgressBar";
 import ChatBox from "@/components/ChatBox";
 import CandlestickChart from "@/components/CandlestickChart";
 import StatusBadge from "@/components/StatusBadge";
@@ -712,16 +713,13 @@ const TokenDetail = () => {
                           : `${bondingPct.toFixed(1)}%`}
                       </span>
                     </div>
-                    <div className="progress-arcade h-5">
-                      <motion.div
-                        className="progress-arcade-fill"
-                        initial={{ width: 0 }}
-                        animate={{
-                          width: `${graduated ? 100 : bondingPct}%`,
-                        }}
-                        transition={{ duration: 1.5 }}
-                      />
-                    </div>
+                    <BondingProgressBar
+                      progress={bondingPct}
+                      graduated={graduated}
+                      barHeight="h-5"
+                      mascotSize={34}
+                      showGraduationAnim
+                    />
                     <div className="flex justify-between mt-2">
                       <p className="text-xs text-muted-foreground font-body">
                         {graduated
@@ -984,16 +982,13 @@ const TokenDetail = () => {
                         : `${bondingPct.toFixed(1)}%`}
                     </span>
                   </div>
-                  <div className="progress-arcade h-5">
-                    <motion.div
-                      className="progress-arcade-fill"
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: `${graduated ? 100 : bondingPct}%`,
-                      }}
-                      transition={{ duration: 1.5 }}
-                    />
-                  </div>
+                  <BondingProgressBar
+                    progress={bondingPct}
+                    graduated={graduated}
+                    barHeight="h-5"
+                    mascotSize={34}
+                    showGraduationAnim
+                  />
                   <div className="flex justify-between mt-2">
                     <p className="text-xs text-muted-foreground font-body">
                       {graduated
