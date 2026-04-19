@@ -29,7 +29,7 @@ export const arcTestnet = defineChain({
 
 export const monadTestnet = defineChain({
   id: 143,
-  name: "Monad Testnet",
+  name: "Monad",
   nativeCurrency: {
     name: "MON",
     symbol: "MON",
