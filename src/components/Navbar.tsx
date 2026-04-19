@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets, Gift } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets, Gift, Chevrons.upDown } from "lucide-react";
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useSwitchChain } from "wagmi";
 import { shortAddress } from "@/lib/arcscan";
 import logo from "@/assets/logo.png";
 
@@ -77,22 +78,16 @@ const Navbar = () => {
 
                 {connected ? (
                   <div className="ml-3 flex items-center gap-2">
-                    {chain.id === 143 ? (
+                    {chain.id === 143 && (
                       <motion.span
                         className="font-body text-xs text-accent bg-accent/10 px-3 py-1.5 rounded-xl border border-accent/30"
                         whileHover={{ scale: 1.05 }}
                       >
                         Monad — Coming Soon
                       </motion.span>
-                    ) : chain.unsupported && (
-                      <motion.button
-                        onClick={openChainModal}
-                        className="font-body text-xs text-destructive bg-destructive/10 px-3 py-1.5 rounded-xl border border-destructive/30"
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        Wrong Network
-                      </motion.button>
+                    )}
+                    {chain.id === 5042002 && (
+                      <ChainSwitchButton currentChain={chain.id} />
                     )}
                     <button
                       onClick={openAccountModal}
@@ -164,5 +159,75 @@ const Navbar = () => {
     </ConnectButton.Custom>
   );
 };
+
+const CHAIN_ICON_URLS: Record<number, string> = {
+  5042002: "https://testnet.arcscan.app/token/airdrop?a=0x0000000000000000000000000000000000000000&t[2]=0xE&f[2]=0x2f2d2f2f.png",
+  143: "https://monascan.io/images/logomark-dark-mode.png",
+};
+
+const CHAIN_NAMES: Record<number, string> = {
+  5042002: "Arc Testnet",
+  143: "Monad",
+};
+
+function ChainSwitchButton({ currentChain }: { currentChain: number }) {
+  const { switchChain } = useSwitchChain();
+  const [open, setOpen] = useState(false);
+
+  const otherChains = Object.keys(CHAIN_NAMES)
+    .map(Number)
+    .filter((id) => id !== currentChain);
+
+  return (
+    <div className="relative">
+      <motion.button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 font-body text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded-xl border border-primary/20 hover:border-primary/40 transition-colors"
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <img
+          src={CHAIN_ICON_URLS[currentChain]}
+          alt=""
+          className="w-4 h-4 rounded-full"
+        />
+        <span className="text-foreground">{CHAIN_NAMES[currentChain]}</span>
+        <Chevrons.upDown size={12} />
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="absolute right-0 top-full mt-1 bg-card border border-primary/20 rounded-xl shadow-xl overflow-hidden z-50"
+          >
+            {otherChains.map((chainId) => (
+              <button
+                key={chainId}
+                onClick={() => {
+                  switchChain({ chainId });
+                  setOpen(false);
+                }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors"
+              >
+                <img
+                  src={CHAIN_ICON_URLS[chainId]}
+                  alt=""
+                  className="w-4 h-4 rounded-full"
+                />
+                <span>{CHAIN_NAMES[chainId]}</span>
+                {chainId === 143 && (
+                  <span className="text-[9px] text-accent">Coming Soon</span>
+                )}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default Navbar;
