@@ -19,6 +19,7 @@ import UserProfilePage from "./pages/UserProfile.tsx";
 import Docs from "./pages/Docs.tsx";
 import Explore from "./pages/Explore.tsx";
 import Liquidity from "./pages/Liquidity.tsx";
+import Tasks from "./pages/Tasks.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
                     <Route path="/token/:address" element={<TokenDetail />} />
                     <Route path="/arena" element={<Arena />} />
                     <Route path="/liquidity" element={<Liquidity />} />
+                    <Route path="/tasks" element={<Tasks />} />
                     <Route path="/docs" element={<Docs />} />
                     <Route path="/creator/:address" element={<CreatorProfile />} />
                     <Route path="/u/:username" element={<UserProfilePage />} />
