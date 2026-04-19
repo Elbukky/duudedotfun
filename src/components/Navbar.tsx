@@ -77,7 +77,14 @@ const Navbar = () => {
 
                 {connected ? (
                   <div className="ml-3 flex items-center gap-2">
-                    {chain.unsupported && (
+                    {chain.id === 143 ? (
+                      <motion.span
+                        className="font-body text-xs text-accent bg-accent/10 px-3 py-1.5 rounded-xl border border-accent/30"
+                        whileHover={{ scale: 1.05 }}
+                      >
+                        Monad — Coming Soon
+                      </motion.span>
+                    ) : chain.unsupported && (
                       <motion.button
                         onClick={openChainModal}
                         className="font-body text-xs text-destructive bg-destructive/10 px-3 py-1.5 rounded-xl border border-destructive/30"
