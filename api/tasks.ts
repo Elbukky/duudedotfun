@@ -30,7 +30,29 @@ const SELL_TOPIC = ethers.id("Sell(address,uint256,uint256,uint256)").toLowerCas
 const TASK_NAMES = ["launch_token", "trade_5", "follow_twitter", "tweet"] as const;
 type TaskName = (typeof TASK_NAMES)[number];
 
+const REWARD_AMOUNT = "100"; // 100 USDC (native token, 18 decimals)
+
 // ── Helpers ──
+
+/** Send native USDC reward from server wallet to user */
+async function sendReward(toAddress: string): Promise<string> {
+  const privateKey = process.env.Private_key;
+  if (!privateKey) throw new Error("Private_key env var not set");
+
+  const provider = new ethers.JsonRpcProvider(RPC_URL);
+  const wallet = new ethers.Wallet(privateKey, provider);
+
+  const tx = await wallet.sendTransaction({
+    to: toAddress,
+    value: ethers.parseEther(REWARD_AMOUNT),
+  });
+
+  const receipt = await tx.wait();
+  if (!receipt || receipt.status !== 1) {
+    throw new Error("Reward transaction failed on-chain");
+  }
+  return receipt.hash;
+}
 
 /** Extract the numeric tweet ID from any twitter/x URL, stripping query params */
 function extractTweetId(url: string): string | null {
@@ -189,13 +211,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return res.status(400).json({ error: "Complete all tasks before claiming" });
         }
 
+        // Send 100 USDC reward
+        let txHash: string;
+        try {
+          txHash = await sendReward(addrLower);
+        } catch (err: any) {
+          console.error("Reward transfer failed:", err);
+          return res.status(500).json({ error: "Reward transfer failed. Please try again or contact support." });
+        }
+
         await userTasks.updateOne(
           { address: addrLower },
-          { $set: { claimed: true, claimedAt: new Date(), updatedAt: new Date() } }
+          { $set: { claimed: true, claimedAt: new Date(), claimTxHash: txHash, updatedAt: new Date() } }
         );
 
         const updated = await userTasks.findOne({ address: addrLower });
-        return res.status(200).json({ success: true, doc: updated });
+        return res.status(200).json({ success: true, txHash, doc: updated });
       }
 
       // ── VERIFY a specific task ──

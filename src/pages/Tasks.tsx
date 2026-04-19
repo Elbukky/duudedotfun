@@ -92,6 +92,7 @@ const Tasks = () => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [claimTxHash, setClaimTxHash] = useState<string | null>(null);
   const [tweetUrl, setTweetUrl] = useState("");
 
   // Fetch task progress
@@ -175,7 +176,8 @@ const Tasks = () => {
         return;
       }
 
-      toast.success("Reward claimed! 100 USDC will be sent to your wallet.");
+      toast.success("Reward claimed! 100 USDC sent to your wallet.");
+      setClaimTxHash(data.txHash || null);
       setTaskDoc(data.doc);
     } catch {
       toast.error("Network error. Try again.");
@@ -364,8 +366,18 @@ const Tasks = () => {
                   <CheckCircle2 size={40} className="text-green-400 mx-auto mb-3" />
                   <h3 className="font-display text-lg text-foreground mb-1">REWARD CLAIMED</h3>
                   <p className="text-xs text-muted-foreground font-body">
-                    100 USDC has been recorded. It will be sent to your wallet.
+                    100 USDC has been sent to your wallet.
                   </p>
+                  {(claimTxHash || (taskDoc as any).claimTxHash) && (
+                    <a
+                      href={`https://testnet.arcscan.app/tx/${claimTxHash || (taskDoc as any).claimTxHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-xs text-primary font-body hover:underline"
+                    >
+                      View transaction <ExternalLink size={12} />
+                    </a>
+                  )}
                 </>
               ) : allDone ? (
                 <>
