@@ -34,6 +34,7 @@ const App = () => (
           borderRadius: "large",
           fontStack: "system",
         })}
+        chainStatus="full"
         showCurrentChain={true}
       >
         <Web3Provider>
