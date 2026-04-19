@@ -24,8 +24,9 @@ const FACTORY_ABI = [
   "function getTokenRecord(address token) view returns (tuple(address token, address curve, address creator, bool graduated, address migrationPool, address vestingVault))",
 ];
 
-const BUY_TOPIC = ethers.id("Buy(address,uint256,uint256,uint256)").toLowerCase();
-const SELL_TOPIC = ethers.id("Sell(address,uint256,uint256,uint256)").toLowerCase();
+// Function selectors for buy(uint256,address) and sell(uint256,uint256) on BondingCurve
+const BUY_SELECTOR = "0x7deb6025";
+const SELL_SELECTOR = "0xd79875eb";
 
 const TASK_NAMES = ["launch_token", "trade_5", "follow_twitter", "tweet"] as const;
 type TaskName = (typeof TASK_NAMES)[number];
@@ -92,29 +93,36 @@ async function checkLaunchToken(address: string): Promise<boolean> {
   }
 }
 
-/** Count user's buy/sell trades across all bonding curves via Arcscan logs */
+/** Count user's buy/sell trades across all bonding curves via Arcscan transactions */
 async function countUserTrades(address: string): Promise<number> {
   try {
-    // Arcscan blockscout API: get all logs emitted in txs sent by this address
-    // We filter for Buy/Sell topics
+    // Query the user's outbound transactions and match by function selector.
+    // The /logs endpoint only works for contract addresses (log emitters), not EOAs.
     const addrLower = address.toLowerCase();
     let count = 0;
     let nextPage: string | null = null;
 
-    // Paginate through address transaction logs
     for (let page = 0; page < 5; page++) {
       const url = nextPage
         ? `${ARCSCAN_BASE}${nextPage}`
-        : `${ARCSCAN_BASE}/addresses/${addrLower}/logs`;
+        : `${ARCSCAN_BASE}/addresses/${addrLower}/transactions`;
 
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!res.ok) break;
       const data = await res.json();
-      const logs = data.items || [];
+      const txns = data.items || [];
 
-      for (const log of logs) {
-        const topic0 = (log.topics?.[0] || "").toLowerCase();
-        if (topic0 === BUY_TOPIC || topic0 === SELL_TOPIC) {
+      for (const tx of txns) {
+        if (tx.status !== "ok") continue; // skip failed txs
+        // method field is the 4-byte selector (e.g. "0x7deb6025")
+        const method = (tx.method || "").toLowerCase();
+        if (method === BUY_SELECTOR || method === SELL_SELECTOR) {
+          count++;
+          continue;
+        }
+        // Fallback: check raw_input prefix
+        const input = (tx.raw_input || "").toLowerCase();
+        if (input.startsWith(BUY_SELECTOR) || input.startsWith(SELL_SELECTOR)) {
           count++;
         }
       }
@@ -122,7 +130,7 @@ async function countUserTrades(address: string): Promise<number> {
       // Check for next page
       if (data.next_page_params) {
         const params = new URLSearchParams(data.next_page_params);
-        nextPage = `/addresses/${addrLower}/logs?${params.toString()}`;
+        nextPage = `/addresses/${addrLower}/transactions?${params.toString()}`;
       } else {
         break;
       }
