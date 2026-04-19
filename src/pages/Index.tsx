@@ -253,18 +253,6 @@ const Index = () => {
                   }}
                 />
               </div>
-              {/* Floating badges */}
-              {['🔥 HOT', '💎 DEGEN', '🚀 MOON'].map((label, i) => (
-                <motion.span
-                  key={label}
-                  className="badge-sticker bg-primary/20 text-primary border-primary/40 absolute text-xs"
-                  style={{ top: `${20 + i * 30}%`, right: `${5 + i * 10}%` }}
-                  animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 + i * 0.5, delay: i * 0.3 }}
-                >
-                  {label}
-                </motion.span>
-              ))}
             </motion.div>
           </div>
         </div>
