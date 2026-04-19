@@ -71,11 +71,15 @@ async function verifyTweetContent(tweetId: string): Promise<{ valid: boolean; er
     const data = await res.json();
     const html = (data.html || "").toLowerCase();
 
-    // Check for mention of duude.fun (various spellings)
-    if (html.includes("duude.fun") || html.includes("duudedotfun") || html.includes("duude dot fun")) {
+    // Accept: @duudedotfun mention, "duudedotfun" text, or "duude.fun" link
+    if (
+      html.includes("duude.fun") ||
+      html.includes("duudedotfun") ||
+      html.includes("@duudedotfun")
+    ) {
       return { valid: true };
     }
-    return { valid: false, error: "Tweet must mention duude.fun" };
+    return { valid: false, error: "Tweet must mention @duudedotfun or include a duude.fun link" };
   } catch {
     return { valid: false, error: "Failed to verify tweet. Try again." };
   }

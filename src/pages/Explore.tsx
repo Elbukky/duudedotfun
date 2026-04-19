@@ -43,7 +43,7 @@ const POOL_IFACE = new ethers.Interface([
   "event Swap(address indexed sender, address indexed to, uint256 tokenIn, uint256 usdcIn, uint256 tokenOut, uint256 usdcOut)",
 ]);
 
-type SortKey = "recent" | "mcap" | "volume" | "change";
+type SortKey = "movers" | "recent" | "mcap" | "volume" | "change";
 type TradeMode = "buy" | "sell";
 
 interface Data24h {
@@ -219,7 +219,7 @@ const Explore = () => {
 
   // UI state
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("recent");
+  const [sortBy, setSortBy] = useState<SortKey>("movers");
   const [page, setPage] = useState(1);
 
   // 24h background data
@@ -293,6 +293,14 @@ const Explore = () => {
   const sorted = useMemo(() => {
     const arr = [...filtered];
     switch (sortBy) {
+      case "movers":
+        // Most active pairs — highest total trade count (buys + sells)
+        arr.sort((a, b) => {
+          const tradesA = Number(a.et.buyCount) + Number(a.et.sellCount);
+          const tradesB = Number(b.et.buyCount) + Number(b.et.sellCount);
+          return tradesB - tradesA;
+        });
+        break;
       case "recent":
         arr.sort((a, b) => Number(b.et.record.createdAt - a.et.record.createdAt));
         break;
@@ -682,6 +690,7 @@ const Explore = () => {
         <div className="flex gap-2 mb-6 flex-wrap">
           {(
             [
+              ["movers", "Movers"],
               ["recent", "Most Recent"],
               ["mcap", "Market Cap"],
               ["volume", "Volume"],

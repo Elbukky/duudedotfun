@@ -75,7 +75,7 @@ const TASKS = [
   {
     id: "tweet" as const,
     title: "Tweet About Us",
-    description: "Post a tweet mentioning duude.fun — paste the link below",
+    description: "Post a tweet mentioning @duudedotfun or duude.fun — paste the link below",
     icon: MessageSquare,
     reward: 25,
     action: "Submit",
