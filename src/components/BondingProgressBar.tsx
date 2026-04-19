@@ -152,7 +152,7 @@ export default function BondingProgressBar({
             transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
           />
 
-          {/* Mascot image — continuous subtle shake */}
+          {/* Mascot image — gentle smooth bobbing */}
           <motion.img
             src={mascot}
             alt=""
@@ -160,16 +160,14 @@ export default function BondingProgressBar({
             style={{ width: mascotSize, height: mascotSize }}
             className="relative z-10 drop-shadow-[0_0_6px_hsl(var(--neon-purple)/0.4)]"
             animate={{
-              x: [-0.8, 0.8, -0.5, 0.6, -0.8],
-              y: [-1, 1.2, -0.6, 1, -1],
-              rotate: [-2, 2.5, -1.5, 2, -2],
-              scale: [1, 1.015, 0.99, 1.01, 1],
+              y: [-1.5, 2, -1.5],
+              rotate: [-3, 4, -3],
+              scale: [1, 1.02, 1],
             }}
             transition={{
-              x: { repeat: Infinity, duration: 0.4, ease: "easeInOut" },
-              y: { repeat: Infinity, duration: 0.5, ease: "easeInOut" },
-              rotate: { repeat: Infinity, duration: 0.6, ease: "easeInOut" },
-              scale: { repeat: Infinity, duration: 0.8, ease: "easeInOut" },
+              y: { repeat: Infinity, duration: 3, ease: "easeInOut" },
+              rotate: { repeat: Infinity, duration: 3.5, ease: "easeInOut" },
+              scale: { repeat: Infinity, duration: 3.2, ease: "easeInOut" },
             }}
           />
         </motion.div>
