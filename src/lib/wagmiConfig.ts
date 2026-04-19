@@ -46,7 +46,6 @@ export const monadTestnet = defineChain({
       url: "https://monascan.io",
     },
   },
-  testnet: true,
 });
 
 export const wagmiConfig = getDefaultConfig({
