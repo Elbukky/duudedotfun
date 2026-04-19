@@ -34,7 +34,7 @@ const App = () => (
           borderRadius: "large",
           fontStack: "system",
         })}
-        showRecentTransactions={true}
+        showCurrentChain={true}
       >
         <Web3Provider>
           <TokenDataProvider>
