@@ -34,6 +34,7 @@ const App = () => (
           borderRadius: "large",
           fontStack: "system",
         })}
+        showRecentTransactions={true}
       >
         <Web3Provider>
           <TokenDataProvider>

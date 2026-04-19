@@ -27,7 +27,7 @@ export const arcTestnet = defineChain({
   testnet: true,
 });
 
-export const monadTestnet = defineChain({
+export const monad = defineChain({
   id: 143,
   name: "Monad",
   nativeCurrency: {
@@ -51,6 +51,6 @@ export const monadTestnet = defineChain({
 export const wagmiConfig = getDefaultConfig({
   appName: "duude.fun",
   projectId: "80860302c6914b5931906382db7c216e",
-  chains: [arcTestnet, monadTestnet],
+  chains: [arcTestnet, monad],
   ssr: false,
 });
