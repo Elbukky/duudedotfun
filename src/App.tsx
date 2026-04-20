@@ -21,7 +21,7 @@ import Explore from "./pages/Explore.tsx";
 import Liquidity from "./pages/Liquidity.tsx";
 import Tasks from "./pages/Tasks.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import BackgroundMusic from "./components/BackgroundMusic.tsx";
+
 
 const queryClient = new QueryClient();
 
@@ -42,7 +42,6 @@ const App = () => (
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
-                <BackgroundMusic />
                 <BrowserRouter>
                   <Routes>
                     <Route path="/" element={<Index />} />
