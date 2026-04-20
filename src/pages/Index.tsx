@@ -224,33 +224,35 @@ const Index = () => {
                 </div>
               </motion.div>
             </div>
+            {/* Mascot fly-by loop */}
             <motion.div
               className="flex-1 flex justify-center relative"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              <motion.img
-                src={mascot}
-                alt="MemeArena Mascot"
-                className="w-64 md:w-80 lg:w-96 drop-shadow-2xl"
-                width={512}
-                height={512}
-                animate={{ y: [0, -15, 0] }}
-                transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-              />
-              {/* Floating badges */}
-              {['🔥 HOT', '💎 DEGEN', '🚀 MOON'].map((label, i) => (
-                <motion.span
-                  key={label}
-                  className="badge-sticker bg-primary/20 text-primary border-primary/40 absolute text-xs"
-                  style={{ top: `${20 + i * 30}%`, right: `${5 + i * 10}%` }}
-                  animate={{ y: [0, -8, 0], rotate: [0, 3, -3, 0] }}
-                  transition={{ repeat: Infinity, duration: 2 + i * 0.5, delay: i * 0.3 }}
-                >
-                  {label}
-                </motion.span>
-              ))}
+              <div className="w-64 md:w-80 lg:w-96 h-64 md:h-80 lg:h-96 relative overflow-visible">
+                <motion.img
+                  src={mascot}
+                  alt="Pepe in Rocket"
+                  className="w-64 md:w-80 lg:w-96 drop-shadow-2xl absolute"
+                  width={512}
+                  height={512}
+                  animate={{
+                    x: [-220, 0, 60, 200, 420],
+                    y: [180, 0, -40, -140, -350],
+                    rotate: [15, 0, -8, -20, -35],
+                    scale: [0.5, 1, 1, 0.85, 0.4],
+                    opacity: [0, 1, 1, 0.7, 0],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 5,
+                    ease: "easeInOut",
+                    times: [0, 0.2, 0.45, 0.75, 1],
+                  }}
+                />
+              </div>
             </motion.div>
           </div>
         </div>

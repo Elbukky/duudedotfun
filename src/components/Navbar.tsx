@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets } from "lucide-react";
+import { Flame, Compass, Swords, Rocket, User, Menu, X, BookOpen, LogOut, Droplets, Gift } from "lucide-react";
 import { useState } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { shortAddress } from "@/lib/arcscan";
@@ -22,6 +22,7 @@ const Navbar = () => {
           { path: "/arena", label: "Arena", icon: Swords },
           { path: "/launch", label: "Launch", icon: Rocket },
           { path: "/liquidity", label: "Liquidity", icon: Droplets },
+          { path: "/tasks", label: "Tasks", icon: Gift },
           { path: "/docs", label: "Docs", icon: BookOpen },
           ...(connected && address
             ? [{ path: `/creator/${address}`, label: "Profile", icon: User }]
@@ -35,13 +36,13 @@ const Navbar = () => {
                 <motion.img
                   src={logo}
                   alt="duude.fun"
-                  className="h-8 w-auto"
+                  className="h-10 w-auto"
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
                   whileHover={{ scale: 1.05 }}
                 />
                 <motion.span
-                  className="text-2xl font-display tracking-wider"
+                  className="text-base font-display tracking-wider"
                   whileHover={{ scale: 1.05 }}
                   style={{
                     background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--slime-green)), hsl(var(--gold)))',
@@ -76,15 +77,13 @@ const Navbar = () => {
 
                 {connected ? (
                   <div className="ml-3 flex items-center gap-2">
-                    {chain.unsupported && (
-                      <motion.button
-                        onClick={openChainModal}
-                        className="font-body text-xs text-destructive bg-destructive/10 px-3 py-1.5 rounded-xl border border-destructive/30"
+                    {chain.id === 143 && (
+                      <motion.span
+                        className="font-body text-xs text-accent bg-accent/10 px-3 py-1.5 rounded-xl border border-accent/30"
                         whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
                       >
-                        Wrong Network
-                      </motion.button>
+                        Monad — Coming Soon
+                      </motion.span>
                     )}
                     <button
                       onClick={openAccountModal}

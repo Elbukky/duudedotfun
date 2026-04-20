@@ -15,9 +15,7 @@ const config: HardhatUserConfig = {
       type: "http",
       url: "https://rpc.testnet.arc.network",
       chainId: 5042002,
-      accounts: [
-        "0xc67461b47038b9b78669c436e3c30013229c9c8c8a0e5a68e1ec16b24c52a480",
-      ],
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
 };

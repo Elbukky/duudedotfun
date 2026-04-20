@@ -1,5 +1,6 @@
-// wagmi + RainbowKit configuration for Arc Testnet
+// wagmi + RainbowKit configuration
 // Arc uses USDC as native gas token (like ETH on Ethereum)
+// Monad support coming soon
 
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { defineChain } from "viem";
@@ -26,9 +27,30 @@ export const arcTestnet = defineChain({
   testnet: true,
 });
 
+export const monad = defineChain({
+  id: 143,
+  name: "Monad",
+  nativeCurrency: {
+    name: "MON",
+    symbol: "MON",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://rpc2.monad.xyz"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Monascan",
+      url: "https://monascan.io",
+    },
+  },
+});
+
 export const wagmiConfig = getDefaultConfig({
   appName: "duude.fun",
   projectId: "80860302c6914b5931906382db7c216e",
-  chains: [arcTestnet],
+  chains: [arcTestnet, monad],
   ssr: false,
 });

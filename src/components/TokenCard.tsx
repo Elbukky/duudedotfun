@@ -4,6 +4,7 @@ import type { Token } from "@/lib/mockData";
 import { formatPriceNum } from "@/lib/contracts";
 import StatusBadge from "./StatusBadge";
 import AuraWrapper from "./AuraWrapper";
+import BondingProgressBar from "./BondingProgressBar";
 
 function TokenLogo({ logo, name, size = "text-4xl" }: { logo: string; name: string; size?: string }) {
   if (logo.startsWith("data:") || logo.startsWith("http")) {
@@ -20,8 +21,18 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
         <motion.div
           className="card-cartoon hover:border-primary/60 transition-all cursor-pointer group"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05, duration: 0.3 }}
+          animate={{
+            opacity: 1,
+            y: [0, -1, 0.8, -0.5, 0],
+            x: [-0.5, 0.5, -0.3, 0.4, -0.5],
+            rotate: [-0.3, 0.3, -0.2, 0.25, -0.3],
+          }}
+          transition={{
+            opacity: { duration: 0.3, delay: index * 0.05 },
+            y: { repeat: Infinity, duration: 2.2, ease: "easeInOut", delay: index * 0.15 },
+            x: { repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: index * 0.15 },
+            rotate: { repeat: Infinity, duration: 3, ease: "easeInOut", delay: index * 0.15 },
+          }}
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -56,14 +67,11 @@ const TokenCard = ({ token, index = 0, rank }: { token: Token; index?: number; r
                   <span className="text-muted-foreground">Bonding</span>
                   <span className="text-primary">{token.bondingProgress.toFixed(1)}%</span>
                 </div>
-                <div className="progress-arcade">
-                  <motion.div
-                    className="progress-arcade-fill"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(token.bondingProgress, 100)}%` }}
-                    transition={{ duration: 1, delay: index * 0.1 }}
-                  />
-                </div>
+                <BondingProgressBar
+                  progress={token.bondingProgress}
+                  mascotSize={48}
+                  animDelay={index * 0.1}
+                />
               </div>
             ) : (
               <div className="pt-1">
